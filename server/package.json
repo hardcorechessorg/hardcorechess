@@ -1,0 +1,12 @@
+{
+  "name": "chess-server",
+  "type": "module",
+  "dependencies": {
+    "chess.js": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
