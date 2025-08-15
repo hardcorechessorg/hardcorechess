@@ -1,41 +1,24 @@
-import { useState, useEffect } from "react";
-import { Chessboard } from "react-chessboard";
-import GameModeSelector from "./components/GameModeSelector";
-import MultiplayerGame from "./components/MultiplayerGame";
-import ComputerGame from "./components/ComputerGame";
-import SinglePlayerGame from "./components/SinglePlayerGame";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import GameModeSelector from './components/GameModeSelector';
+import MultiplayerGame from './components/MultiplayerGame';
+import ComputerGame from './components/ComputerGame';
+import SinglePlayerGame from './components/SinglePlayerGame';
 
-export default function App() {
-  const [gameMode, setGameMode] = useState(null);
-  const [gameData, setGameData] = useState(null);
-
-  const handleGameModeSelect = (mode, data = null) => {
-    setGameMode(mode);
-    setGameData(data);
-  };
-
-  const handleBackToMenu = () => {
-    setGameMode(null);
-    setGameData(null);
-  };
-
-  const renderGameComponent = () => {
-    switch (gameMode) {
-      case 'multiplayer':
-        return <MultiplayerGame gameData={gameData} onBack={handleBackToMenu} />;
-      case 'computer':
-        return <ComputerGame onBack={handleBackToMenu} />;
-      case 'single':
-        return <SinglePlayerGame onBack={handleBackToMenu} />;
-      default:
-        return <GameModeSelector onSelect={handleGameModeSelect} />;
-    }
-  };
-
+function App() {
   return (
-    <div style={{ padding: 20 }}>
-      <h1>♟ Hardcore Chess</h1>
-      {renderGameComponent()}
-    </div>
+    <Router>
+      <div style={{ padding: 20 }}>
+        <h1>♟ Hardcore Chess</h1>
+        <Routes>
+          <Route path="/" element={<GameModeSelector />} />
+          <Route path="/multiplayer" element={<MultiplayerGame />} />
+          <Route path="/computer" element={<ComputerGame />} />
+          <Route path="/single" element={<SinglePlayerGame />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
+
+export default App;

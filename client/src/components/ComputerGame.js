@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
+import { useNavigate } from 'react-router-dom';
 
-const ComputerGame = ({ onBack }) => {
+const ComputerGame = () => {
+  const navigate = useNavigate();
   const [game, setGame] = useState(new Chess());
   const [difficulty, setDifficulty] = useState(5);
   const [isGameOver, setIsGameOver] = useState(false);
@@ -103,7 +105,7 @@ const ComputerGame = ({ onBack }) => {
   return (
     <div style={{ textAlign: 'center' }}>
       <button 
-        onClick={onBack}
+        onClick={() => navigate('/')}
         style={{
           position: 'absolute',
           top: '20px',

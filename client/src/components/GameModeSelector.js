@@ -1,24 +1,30 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const GameModeSelector = ({ onSelect }) => {
+const GameModeSelector = () => {
+  const navigate = useNavigate();
+
   const gameModes = [
     {
       id: 'multiplayer',
       title: '🎮 Многопользовательская игра',
       description: 'Играйте с другом по ссылке',
-      color: '#4CAF50'
+      color: '#4CAF50',
+      path: '/multiplayer'
     },
     {
       id: 'computer',
       title: '🤖 Игра против компьютера',
       description: 'Сразитесь с Stockfish',
-      color: '#2196F3'
+      color: '#2196F3',
+      path: '/computer'
     },
     {
       id: 'single',
       title: '🧩 Одиночная игра',
       description: 'Тренируйтесь самостоятельно',
-      color: '#FF9800'
+      color: '#FF9800',
+      path: '/single'
     }
   ];
 
@@ -37,7 +43,7 @@ const GameModeSelector = ({ onSelect }) => {
         {gameModes.map((mode) => (
           <div
             key={mode.id}
-            onClick={() => onSelect(mode.id)}
+            onClick={() => navigate(mode.path)}
             style={{
               padding: '30px',
               borderRadius: '15px',

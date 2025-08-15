@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
+import { useNavigate } from 'react-router-dom';
 
-const MultiplayerGame = ({ onBack }) => {
+const MultiplayerGame = () => {
+  const navigate = useNavigate();
   const [gameId, setGameId] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [gameState, setGameState] = useState('menu'); // menu, creating, joining, playing
@@ -18,7 +20,9 @@ const MultiplayerGame = ({ onBack }) => {
       const data = await response.json();
       
       setGameId(data.gameId);
-      setJoinUrl(data.joinUrl);
+      // Создаем правильную ссылку для присоединения
+      const joinLink = `${window.location.origin}/multiplayer?join=${data.gameId}`;
+      setJoinUrl(joinLink);
       setGameState('creating');
       setError('');
     } catch (err) {
@@ -127,6 +131,15 @@ const MultiplayerGame = ({ onBack }) => {
     }
   };
 
+  const openGameInNewTab = () => {
+    window.open(joinUrl, '_blank');
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(joinUrl);
+    // Можно добавить уведомление об успешном копировании
+  };
+
   useEffect(() => {
     return () => {
       if (ws) {
@@ -139,7 +152,7 @@ const MultiplayerGame = ({ onBack }) => {
     return (
       <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
         <button 
-          onClick={onBack}
+          onClick={() => navigate('/')}
           style={{
             position: 'absolute',
             top: '20px',
@@ -242,7 +255,7 @@ const MultiplayerGame = ({ onBack }) => {
     return (
       <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
         <button 
-          onClick={onBack}
+          onClick={() => navigate('/')}
           style={{
             position: 'absolute',
             top: '20px',
@@ -281,20 +294,34 @@ const MultiplayerGame = ({ onBack }) => {
               backgroundColor: 'white'
             }}
           />
-          <button
-            onClick={() => navigator.clipboard.writeText(joinUrl)}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              marginTop: '10px'
-            }}
-          >
-            Копировать ссылку
-          </button>
+          <div style={{ marginTop: '15px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button
+              onClick={copyToClipboard}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Копировать ссылку
+            </button>
+            <button
+              onClick={openGameInNewTab}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#2196F3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              Открыть в новой вкладке
+            </button>
+          </div>
         </div>
         
         <p>Отправьте эту ссылку другу, чтобы он мог присоединиться к игре.</p>
@@ -341,7 +368,7 @@ const MultiplayerGame = ({ onBack }) => {
     return (
       <div style={{ textAlign: 'center' }}>
         <button 
-          onClick={onBack}
+          onClick={() => navigate('/')}
           style={{
             position: 'absolute',
             top: '20px',
