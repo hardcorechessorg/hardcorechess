@@ -38,7 +38,7 @@ const ComputerGame = () => {
     setIsThinking(true);
     
     try {
-      const response = await fetch('https://hardcorechess.onrender.com/stockfish-move', {
+      const response = await fetch('https://www.hardcorechess.org/stockfish-move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

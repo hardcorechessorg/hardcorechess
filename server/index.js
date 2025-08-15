@@ -17,9 +17,9 @@ const gameRooms = new Map();
 
 app.use(bodyParser.json());
 
-// Разрешаем запросы с клиента на Render
+// Разрешаем запросы с клиента на новом домене
 app.use(cors({
-  origin: ["https://hardcorechess-client.onrender.com", "http://localhost:3000"],
+  origin: ["https://www.hardcorechess.org", "http://localhost:3000"],
   methods: ["GET", "POST"],
   credentials: true
 }));
@@ -41,7 +41,7 @@ app.post("/create-multiplayer-game", (req, res) => {
   
   res.json({ 
     gameId, 
-    joinUrl: `${req.headers.origin || 'https://hardcorechess-client.onrender.com'}/#/multiplayer?join=${gameId}`,
+    joinUrl: `${req.headers.origin || 'https://www.hardcorechess.org'}/#/multiplayer?join=${gameId}`,
     fen: game.fen() 
   });
 });
