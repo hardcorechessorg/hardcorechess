@@ -11,7 +11,8 @@ export default function App() {
   }, []);
 
   async function startNewGame() {
-    const res = await fetch("http://localhost:3001/new-game", { method: "POST" });
+   const res = await fetch("https://hardcorechess.onrender.com/new-game", { method: "POST" });
+
     const data = await res.json();
     setFen(data.fen);
     setIsGameOver(false);
@@ -21,7 +22,7 @@ export default function App() {
   async function handleMove(sourceSquare, targetSquare) {
     if (isGameOver) return false;
 
-    const res = await fetch("http://localhost:3001/move", {
+    const res = await fetch("https://hardcorechess.onrender.com/move", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from: sourceSquare, to: targetSquare })
