@@ -1,60 +1,41 @@
 import { useState, useEffect } from "react";
 import { Chessboard } from "react-chessboard";
+import GameModeSelector from "./components/GameModeSelector";
+import MultiplayerGame from "./components/MultiplayerGame";
+import ComputerGame from "./components/ComputerGame";
+import SinglePlayerGame from "./components/SinglePlayerGame";
 
 export default function App() {
-  const [fen, setFen] = useState("");
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [result, setResult] = useState(null);
+  const [gameMode, setGameMode] = useState(null);
+  const [gameData, setGameData] = useState(null);
 
-  useEffect(() => {
-    startNewGame();
-  }, []);
+  const handleGameModeSelect = (mode, data = null) => {
+    setGameMode(mode);
+    setGameData(data);
+  };
 
-  async function startNewGame() {
-   const res = await fetch("https://hardcorechess.onrender.com/new-game", { method: "POST" });
+  const handleBackToMenu = () => {
+    setGameMode(null);
+    setGameData(null);
+  };
 
-    const data = await res.json();
-    setFen(data.fen);
-    setIsGameOver(false);
-    setResult(null);
-  }
-
-  async function handleMove(sourceSquare, targetSquare) {
-    if (isGameOver) return false;
-
-    const res = await fetch("https://hardcorechess.onrender.com/move", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: sourceSquare, to: targetSquare })
-    });
-
-    const data = await res.json();
-
-    if (data.error) return false;
-
-    setFen(data.fen);
-    setIsGameOver(data.isGameOver);
-    setResult(data.result);
-
-    return true;
-  }
+  const renderGameComponent = () => {
+    switch (gameMode) {
+      case 'multiplayer':
+        return <MultiplayerGame gameData={gameData} onBack={handleBackToMenu} />;
+      case 'computer':
+        return <ComputerGame onBack={handleBackToMenu} />;
+      case 'single':
+        return <SinglePlayerGame onBack={handleBackToMenu} />;
+      default:
+        return <GameModeSelector onSelect={handleGameModeSelect} />;
+    }
+  };
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>♟ Шахматы</h1>
-      <button onClick={startNewGame}>Новая игра</button>
-
-      <Chessboard
-        position={fen}
-        onPieceDrop={handleMove}
-        boardWidth={600}
-      />
-
-      {isGameOver && (
-        <div style={{ marginTop: 20, fontWeight: "bold", color: "red" }}>
-          {result}
-        </div>
-      )}
+      <h1>♟ Hardcore Chess</h1>
+      {renderGameComponent()}
     </div>
   );
 }
