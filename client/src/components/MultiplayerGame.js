@@ -24,7 +24,8 @@ const MultiplayerGame = () => {
 
   const createNewGame = async () => {
     try {
-      const response = await fetch('https://www.hardcorechess.org/create-multiplayer-game', {
+      // Сервер на Render, клиент на hardcorechess.org
+      const response = await fetch('https://hardcorechess.onrender.com/create-multiplayer-game', {
         method: 'POST'
       });
       const data = await response.json();
@@ -47,7 +48,7 @@ const MultiplayerGame = () => {
     }
 
     try {
-      const response = await fetch('https://www.hardcorechess.org/join-game', {
+      const response = await fetch('https://hardcorechess.onrender.com/join-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId, playerName })
@@ -70,7 +71,8 @@ const MultiplayerGame = () => {
   };
 
   const connectWebSocket = (gameId) => {
-    const websocket = new WebSocket(`wss://www.hardcorechess.org?gameId=${gameId}`);
+    // WebSocket к серверу на Render
+    const websocket = new WebSocket(`wss://hardcorechess.onrender.com?gameId=${gameId}`);
     
     websocket.onopen = () => {
       console.log('WebSocket соединение установлено');
@@ -105,7 +107,7 @@ const MultiplayerGame = () => {
     }
 
     try {
-      const response = await fetch('https://www.hardcorechess.org/multiplayer-move', {
+      const response = await fetch('https://hardcorechess.onrender.com/multiplayer-move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

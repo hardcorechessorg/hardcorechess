@@ -14,7 +14,8 @@ const SinglePlayerGame = () => {
 
   async function startNewGame() {
     try {
-      const res = await fetch("https://www.hardcorechess.org/new-game", { method: "POST" });
+      // Сервер на Render, клиент на hardcorechess.org
+      const res = await fetch("https://hardcorechess.onrender.com/new-game", { method: "POST" });
       const data = await res.json();
       setFen(data.fen);
       setIsGameOver(false);
@@ -28,7 +29,7 @@ const SinglePlayerGame = () => {
     if (isGameOver) return false;
 
     try {
-      const res = await fetch("https://www.hardcorechess.org/move", {
+      const res = await fetch("https://hardcorechess.onrender.com/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ from: sourceSquare, to: targetSquare })

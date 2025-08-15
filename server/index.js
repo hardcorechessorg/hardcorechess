@@ -41,7 +41,8 @@ app.post("/create-multiplayer-game", (req, res) => {
   
   res.json({ 
     gameId, 
-    joinUrl: `${req.headers.origin || 'https://www.hardcorechess.org'}/#/multiplayer?join=${gameId}`,
+    // Сервер на Render, клиент на hardcorechess.org
+    joinUrl: `https://www.hardcorechess.org/#/multiplayer?join=${gameId}`,
     fen: game.fen() 
   });
 });
