@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const MultiplayerGame = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [gameId, setGameId] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [gameState, setGameState] = useState('menu'); // menu, creating, joining, playing
@@ -11,6 +12,15 @@ const MultiplayerGame = () => {
   const [joinUrl, setJoinUrl] = useState('');
   const [error, setError] = useState('');
   const [ws, setWs] = useState(null);
+
+  // Проверяем, есть ли параметр join в URL
+  useEffect(() => {
+    const joinGameId = searchParams.get('join');
+    if (joinGameId) {
+      setGameId(joinGameId);
+      setGameState('joining');
+    }
+  }, [searchParams]);
 
   const createNewGame = async () => {
     try {
@@ -90,10 +100,7 @@ const MultiplayerGame = () => {
     if (!gameData || gameData.isGameOver) return false;
     
     // Проверяем, чей ход
-    const isWhiteTurn = gameData.currentPlayer === 'w';
-    const isPlayerWhite = gameData.color === 'w';
-    
-    if (isWhiteTurn !== isPlayerWhite) {
+    if (gameData.currentPlayer !== gameData.color) {
       return false; // Не ваш ход
     }
 
@@ -240,6 +247,81 @@ const MultiplayerGame = () => {
               Присоединиться
             </button>
           </div>
+        </div>
+        
+        {error && (
+          <div style={{ color: 'red', marginTop: '20px' }}>
+            {error}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (gameState === 'joining') {
+    return (
+      <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
+        <button 
+          onClick={() => navigate('/')}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            padding: '10px 20px',
+            backgroundColor: '#666',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer'
+          }}
+        >
+          ← Назад
+        </button>
+        
+        <h2>🎮 Присоединиться к игре</h2>
+        
+        <div style={{ 
+          backgroundColor: '#e3f2fd', 
+          padding: '20px', 
+          borderRadius: '10px',
+          margin: '20px 0'
+        }}>
+          <p><strong>ID игры:</strong> {gameId}</p>
+          <p>Введите ваше имя, чтобы присоединиться к игре.</p>
+        </div>
+        
+        <div style={{ marginTop: '30px' }}>
+          <input
+            type="text"
+            placeholder="Ваше имя"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            style={{
+              padding: '12px',
+              fontSize: '1em',
+              width: '200px',
+              margin: '5px',
+              borderRadius: '5px',
+              border: '1px solid #ddd'
+            }}
+          />
+          <br />
+          <button
+            onClick={joinGame}
+            style={{
+              padding: '12px 25px',
+              fontSize: '1em',
+              backgroundColor: '#2196F3',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              margin: '10px',
+              width: '200px'
+            }}
+          >
+            Присоединиться к игре
+          </button>
         </div>
         
         {error && (

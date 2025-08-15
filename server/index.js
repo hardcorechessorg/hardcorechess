@@ -32,7 +32,7 @@ app.post("/create-multiplayer-game", (req, res) => {
     chess: game,
     players: [],
     spectators: [],
-    currentPlayer: 'w', // белые начинают
+    currentPlayer: 'w', // белые всегда начинают
     status: 'waiting' // waiting, playing, finished
   });
   
@@ -40,7 +40,7 @@ app.post("/create-multiplayer-game", (req, res) => {
   
   res.json({ 
     gameId, 
-    joinUrl: `https://hardcorechess-client.onrender.com/game/${gameId}`,
+    joinUrl: `${req.headers.origin || 'https://hardcorechess-client.onrender.com'}/multiplayer?join=${gameId}`,
     fen: game.fen() 
   });
 });
@@ -58,18 +58,22 @@ app.post("/join-game", (req, res) => {
     return res.status(400).json({ error: "Игра уже заполнена" });
   }
   
+  // Первый игрок всегда белые, второй - черные
   const playerColor = game.players.length === 0 ? 'w' : 'b';
   game.players.push({ name: playerName, color: playerColor, ws: null });
   
   if (game.players.length === 2) {
     game.status = 'playing';
+    // Белые всегда начинают
+    game.currentPlayer = 'w';
   }
   
   res.json({ 
     success: true, 
     color: playerColor, 
     fen: game.chess.fen(),
-    players: game.players.map(p => ({ name: p.name, color: p.color }))
+    players: game.players.map(p => ({ name: p.name, color: p.color })),
+    currentPlayer: game.currentPlayer
   });
 });
 
