@@ -5,6 +5,7 @@ import { Chess } from "chess.js";
 import { WebSocketServer } from "ws";
 import { createServer } from "http";
 import { spawn } from "child_process";
+import path from "path";
 
 const app = express();
 const server = createServer(app);
@@ -23,7 +24,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Создать новую многопользовательскую игру
+// API маршруты
 app.post("/create-multiplayer-game", (req, res) => {
   const gameId = generateGameId();
   const game = new Chess();
@@ -40,7 +41,7 @@ app.post("/create-multiplayer-game", (req, res) => {
   
   res.json({ 
     gameId, 
-    joinUrl: `${req.headers.origin || 'https://hardcorechess-client.onrender.com'}/multiplayer?join=${gameId}`,
+    joinUrl: `${req.headers.origin || 'https://hardcorechess-client.onrender.com'}/#/multiplayer?join=${gameId}`,
     fen: game.fen() 
   });
 });
@@ -274,6 +275,17 @@ app.post("/move", (req, res) => {
     isGameOver,
     result
   });
+});
+
+// Простая обработка всех остальных запросов для React SPA
+app.get('*', (req, res) => {
+  // Если это API запрос, возвращаем 404
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  // Для всех остальных запросов возвращаем index.html
+  res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
 
 // Запуск сервера на Render

@@ -16,12 +16,65 @@ const ComputerGame = () => {
     startNewGame();
   }, []);
 
+  // Когда меняется цвет игрока, автоматически делаем ход компьютера если нужно
+  useEffect(() => {
+    if (playerColor === 'b' && game.turn() === 'w') {
+      // Игрок выбрал черные, значит компьютер должен сделать первый ход белыми
+      makeComputerMove();
+    }
+  }, [playerColor, game.turn()]);
+
   const startNewGame = () => {
     const newGame = new Chess();
     setGame(newGame);
     setIsGameOver(false);
     setResult(null);
     setIsThinking(false);
+  };
+
+  const makeComputerMove = async () => {
+    if (game.isGameOver()) return;
+    
+    setIsThinking(true);
+    
+    try {
+      const response = await fetch('https://hardcorechess.onrender.com/stockfish-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          fen: game.fen(), 
+          difficulty: difficulty 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error('Ошибка Stockfish:', data.error);
+        setIsThinking(false);
+        return;
+      }
+
+      // Компьютер делает ход
+      const computerMove = game.move(data.move);
+      if (computerMove) {
+        setGame(new Chess(game.fen()));
+        
+        // Проверяем, не окончена ли игра после хода компьютера
+        if (game.isGameOver()) {
+          setIsGameOver(true);
+          if (game.isCheckmate()) {
+            setResult(playerColor === 'w' ? 'Победа черных!' : 'Победа белых!');
+          } else if (game.isDraw()) {
+            setResult('Ничья!');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка при получении хода компьютера:', error);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const handleMove = async (sourceSquare, targetSquare) => {
@@ -48,46 +101,9 @@ const ComputerGame = () => {
     }
 
     // Если игра не окончена, ходит компьютер
-    setIsThinking(true);
-    
-    try {
-      const response = await fetch('https://hardcorechess.onrender.com/stockfish-move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          fen: game.fen(), 
-          difficulty: difficulty 
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        console.error('Ошибка Stockfish:', data.error);
-        setIsThinking(false);
-        return true;
-      }
-
-      // Компьютер делает ход
-      const computerMove = game.move(data.move);
-      if (computerMove) {
-        setGame(new Chess(game.fen()));
-        
-        // Проверяем, не окончена ли игра после хода компьютера
-        if (game.isGameOver()) {
-          setIsGameOver(true);
-          if (game.isCheckmate()) {
-            setResult(playerColor === 'w' ? 'Победа черных!' : 'Победа белых!');
-          } else if (game.isDraw()) {
-            setResult('Ничья!');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Ошибка при получении хода компьютера:', error);
-    } finally {
-      setIsThinking(false);
-    }
+    setTimeout(() => {
+      makeComputerMove();
+    }, 500); // Небольшая задержка для лучшего UX
 
     return true;
   };

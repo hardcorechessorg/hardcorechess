@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import GameModeSelector from './components/GameModeSelector';
 import MultiplayerGame from './components/MultiplayerGame';
 import ComputerGame from './components/ComputerGame';

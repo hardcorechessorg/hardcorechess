@@ -30,8 +30,8 @@ const MultiplayerGame = () => {
       const data = await response.json();
       
       setGameId(data.gameId);
-      // Создаем правильную ссылку для присоединения
-      const joinLink = `${window.location.origin}/multiplayer?join=${data.gameId}`;
+      // Создаем правильную ссылку для присоединения с HashRouter
+      const joinLink = `${window.location.origin}/#/multiplayer?join=${data.gameId}`;
       setJoinUrl(joinLink);
       setGameState('creating');
       setError('');
