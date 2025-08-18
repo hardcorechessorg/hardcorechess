@@ -114,7 +114,8 @@ const MultiplayerGame = () => {
           gameId,
           from: sourceSquare,
           to: targetSquare,
-          playerColor: gameData.color
+          playerColor: gameData.color,
+          authToken: gameData.token
         })
       });
       

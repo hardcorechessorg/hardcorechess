@@ -1,11 +1,14 @@
 import express from "express";
 import cors from "cors";
-import bodyParser from "body-parser";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import { z } from "zod";
+import crypto from "crypto";
 import { Chess } from "chess.js";
 import { WebSocketServer } from "ws";
 import { createServer } from "http";
-import { spawn } from "child_process";
-import path from "path";
+import path, { dirname } from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 const server = createServer(app);
@@ -15,17 +18,76 @@ const wss = new WebSocketServer({ server });
 const games = new Map();
 const gameRooms = new Map();
 
-app.use(bodyParser.json());
+// Безопасные параметры и middleware
+const allowedOrigins = ["https://www.hardcorechess.org", "http://localhost:3000"];
+
+app.set("trust proxy", 1);
+app.use(helmet());
+app.use(express.json({ limit: "10kb" }));
 
 // Разрешаем запросы с клиента на новом домене
 app.use(cors({
-  origin: ["https://www.hardcorechess.org", "http://localhost:3000"],
+  origin: allowedOrigins,
   methods: ["GET", "POST"],
-  credentials: true
+  credentials: false
 }));
 
+// Rate limiting
+const createJoinLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const moveLimiter = rateLimit({
+  windowMs: 1 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const stockfishLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Валидация входных данных
+const gameIdSchema = z.string().regex(/^[A-Z0-9]{6}$/);
+const playerNameSchema = z
+  .string()
+  .min(1)
+  .max(30)
+  .regex(/^[\p{L}\p{N}_ -]+$/u);
+const squareSchema = z.string().regex(/^[a-h][1-8]$/);
+const moveBodySchema = z.object({
+  gameId: gameIdSchema,
+  from: squareSchema,
+  to: squareSchema,
+  playerColor: z.enum(["w", "b"]),
+  authToken: z.string().min(20).max(128)
+});
+const joinBodySchema = z.object({
+  gameId: gameIdSchema,
+  playerName: playerNameSchema
+});
+const stockfishBodySchema = z.object({
+  fen: z.string().min(3).max(120),
+  difficulty: z.number().int().min(1).max(10)
+});
+
+// __dirname для ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+function generateToken() {
+  return crypto.randomBytes(24).toString("hex");
+}
+
 // API маршруты
-app.post("/create-multiplayer-game", (req, res) => {
+app.post("/create-multiplayer-game", createJoinLimiter, (req, res) => {
   const gameId = generateGameId();
   const game = new Chess();
   
@@ -48,8 +110,12 @@ app.post("/create-multiplayer-game", (req, res) => {
 });
 
 // Присоединиться к игре
-app.post("/join-game", (req, res) => {
-  const { gameId, playerName } = req.body;
+app.post("/join-game", createJoinLimiter, (req, res) => {
+  const parseResult = joinBodySchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Неверные данные запроса" });
+  }
+  const { gameId, playerName } = parseResult.data;
   const game = games.get(gameId);
   
   if (!game) {
@@ -62,7 +128,9 @@ app.post("/join-game", (req, res) => {
   
   // Первый игрок всегда белые, второй - черные
   const playerColor = game.players.length === 0 ? 'w' : 'b';
-  game.players.push({ name: playerName, color: playerColor, ws: null });
+  const token = generateToken();
+  const safeName = playerName.trim();
+  game.players.push({ name: safeName, color: playerColor, ws: null, token });
   
   if (game.players.length === 2) {
     game.status = 'playing';
@@ -75,7 +143,8 @@ app.post("/join-game", (req, res) => {
     color: playerColor, 
     fen: game.chess.fen(),
     players: game.players.map(p => ({ name: p.name, color: p.color })),
-    currentPlayer: game.currentPlayer
+    currentPlayer: game.currentPlayer,
+    token
   });
 });
 
@@ -97,14 +166,24 @@ app.get("/game/:gameId", (req, res) => {
 });
 
 // Сделать ход в многопользовательской игре
-app.post("/multiplayer-move", (req, res) => {
-  const { gameId, from, to, playerColor } = req.body;
+app.post("/multiplayer-move", moveLimiter, (req, res) => {
+  const parsed = moveBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Неверные данные запроса" });
+  }
+  const { gameId, from, to, playerColor, authToken } = parsed.data;
   const game = games.get(gameId);
   
   if (!game || game.status !== 'playing') {
     return res.status(400).json({ error: "Игра недоступна" });
   }
   
+  // Проверяем, что токен соответствует игроку и сейчас его ход
+  const authorizedPlayer = game.players.find(p => p.color === playerColor && p.token === authToken);
+  if (!authorizedPlayer) {
+    return res.status(403).json({ error: "Недостаточно прав" });
+  }
+
   if (game.currentPlayer !== playerColor) {
     return res.status(400).json({ error: "Не ваш ход" });
   }
@@ -153,8 +232,12 @@ app.post("/multiplayer-move", (req, res) => {
 });
 
 // Игра против Stockfish
-app.post("/stockfish-move", async (req, res) => {
-  const { fen, difficulty } = req.body;
+app.post("/stockfish-move", stockfishLimiter, async (req, res) => {
+  const parsed = stockfishBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Неверные данные запроса" });
+  }
+  const { fen, difficulty } = parsed.data;
   const game = new Chess(fen);
   
   if (game.isGameOver()) {
@@ -190,6 +273,11 @@ app.post("/stockfish-move", async (req, res) => {
 
 // WebSocket соединения для многопользовательской игры
 wss.on('connection', (ws, req) => {
+  const origin = req.headers.origin;
+  if (origin && !allowedOrigins.includes(origin)) {
+    try { ws.close(1008, 'Origin not allowed'); } catch {}
+    return;
+  }
   const url = new URL(req.url, 'http://localhost');
   const gameId = url.searchParams.get('gameId');
   
@@ -344,7 +432,8 @@ async function getStockfishMove(fen, difficulty) {
 
 // Генерация уникального ID игры
 function generateGameId() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  // 3 байта = 6 HEX-символов
+  return crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
 // Новая игра (для одиночной игры)
@@ -391,6 +480,12 @@ app.get('*', (req, res) => {
   
   // Для всех остальных запросов возвращаем index.html
   res.sendFile(path.join(__dirname, '../client/build/index.html'));
+});
+
+// Централизованная обработка ошибок
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // Запуск сервера на Render
