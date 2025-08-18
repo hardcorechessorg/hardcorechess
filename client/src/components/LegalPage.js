@@ -8,7 +8,7 @@ const LegalPage = () => {
       <section style={{ marginTop: 16 }}>
         <h3>Скачать оферту</h3>
         <a
-          href="/oferta_027370973970.docx"
+          href="/ПУБЛИЧНАЯ ОФЕРТА.docx"
           target="_blank"
           rel="noopener noreferrer"
           download
