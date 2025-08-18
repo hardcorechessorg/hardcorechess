@@ -28,6 +28,7 @@ const LegalPage = () => {
       <section style={{ marginTop: 24 }}>
         <h3>Реквизиты</h3>
         <p><strong>ИНН:</strong> 027370973970</p>
+        <p><strong>Чичеров Платон Артурович</strong></p>
       </section>
 
       <section style={{ marginTop: 16 }}>
