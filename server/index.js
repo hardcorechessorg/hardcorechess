@@ -214,28 +214,132 @@ wss.on('connection', (ws, req) => {
   }
 });
 
-// Функция для получения хода от Stockfish
+// Функция для получения хода от ИИ (альфа-бета, глубина зависит от difficulty)
 async function getStockfishMove(fen, difficulty) {
-  return new Promise((resolve, reject) => {
-    // Для демонстрации используем простую логику
-    // В реальном проекте здесь должен быть Stockfish
-    const game = new Chess(fen);
-    const moves = game.moves();
-    
-    if (moves.length === 0) {
-      reject(new Error("Нет доступных ходов"));
-      return;
+  const game = new Chess(fen);
+  const legalMoves = game.moves();
+  if (legalMoves.length === 0) {
+    throw new Error("Нет доступных ходов");
+  }
+
+  // Маппинг сложности (1-10) в глубину поиска
+  // 1-3 → 1, 4-6 → 2, 7-8 → 3, 9-10 → 4
+  const depth = difficulty >= 9 ? 4 : difficulty >= 7 ? 3 : difficulty >= 4 ? 2 : 1;
+
+  // Небольшой стохастический фактор для низких сложностей
+  const addNoise = difficulty <= 3;
+
+  // Оценочная функция (материал + простая мобильность)
+  function evaluatePosition(evalGame) {
+    if (evalGame.isCheckmate()) {
+      // Если мат текущему игроку, это очень плохо, иначе очень хорошо
+      return evalGame.turn() === 'w' ? -Infinity : Infinity;
     }
-    
-    // Простая логика: выбираем случайный ход
-    // В реальности здесь должен быть Stockfish с настройкой сложности
-    const randomMove = moves[Math.floor(Math.random() * moves.length)];
-    
-    // Имитируем задержку в зависимости от сложности
-    setTimeout(() => {
-      resolve(randomMove);
-    }, 1000 - (difficulty * 50));
-  });
+    if (evalGame.isDraw()) return 0;
+
+    const board = evalGame.board();
+    let score = 0;
+    const pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+
+    for (let rank of board) {
+      for (let piece of rank) {
+        if (!piece) continue;
+        const val = pieceValues[piece.type] || 0;
+        score += piece.color === 'w' ? val : -val;
+      }
+    }
+
+    // Мобильность: количество ходов (белые - черные) * небольшой коэффициент
+    const whiteMoves = countMovesFor(evalGame, 'w');
+    const blackMoves = countMovesFor(evalGame, 'b');
+    score += (whiteMoves - blackMoves) * 2;
+
+    return score;
+  }
+
+  function countMovesFor(baseGame, color) {
+    const g = new Chess(baseGame.fen());
+    if (g.turn() !== color) {
+      // Сделаем пустой ход для смены стороны? Нельзя. Просто считаем грубо: переведем ход цвету
+      // Создадим позицию и просчитаем без изменения хода
+    }
+    try {
+      // chess.js генерирует ходы только для текущего игрока
+      // Если не его ход, тогда временно сделаем null move симуляцией: перебор всех ходов соперника и суммирование? Это дорого.
+      // Упростим: если не его ход, вернем 0; мобильность учитывается приблизительно.
+      if (g.turn() !== color) return 0;
+      return g.moves().length;
+    } catch {
+      return 0;
+    }
+  }
+
+  // Упорядочивание ходов: сначала взятия, затем остальные
+  function orderMoves(g, moves) {
+    return moves.sort((a, b) => {
+      const am = g.move(a); g.undo();
+      const bm = g.move(b); g.undo();
+      const acap = am && am.captured ? 1 : 0;
+      const bcap = bm && bm.captured ? 1 : 0;
+      return bcap - acap;
+    });
+  }
+
+  function alphaBeta(g, currentDepth, alpha, beta, maximizingPlayer) {
+    if (currentDepth === 0 || g.isGameOver()) {
+      return evaluatePosition(g);
+    }
+    let best;
+    const moves = orderMoves(g, g.moves());
+    if (maximizingPlayer) {
+      best = -Infinity;
+      for (const m of moves) {
+        g.move(m);
+        const val = alphaBeta(g, currentDepth - 1, alpha, beta, false);
+        g.undo();
+        if (val > best) best = val;
+        if (best > alpha) alpha = best;
+        if (beta <= alpha) break;
+      }
+      return best;
+    } else {
+      best = Infinity;
+      for (const m of moves) {
+        g.move(m);
+        const val = alphaBeta(g, currentDepth - 1, alpha, beta, true);
+        g.undo();
+        if (val < best) best = val;
+        if (best < beta) beta = best;
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+  }
+
+  // Определяем, кто делает ход в текущей позиции
+  const maximizing = game.turn() === 'w';
+  let bestScore = maximizing ? -Infinity : Infinity;
+  let bestMoves = [];
+  const moves = orderMoves(game, legalMoves.slice());
+  for (const m of moves) {
+    game.move(m);
+    const score = alphaBeta(game, depth - 1, -Infinity, Infinity, !maximizing);
+    game.undo();
+    if (maximizing) {
+      if (score > bestScore) { bestScore = score; bestMoves = [m]; }
+      else if (score === bestScore) { bestMoves.push(m); }
+    } else {
+      if (score < bestScore) { bestScore = score; bestMoves = [m]; }
+      else if (score === bestScore) { bestMoves.push(m); }
+    }
+  }
+
+  // Небольшая случайность на низких уровнях
+  const chosen = addNoise && bestMoves.length > 1
+    ? bestMoves[Math.floor(Math.random() * bestMoves.length)]
+    : bestMoves[0] || legalMoves[0];
+
+  return chosen;
 }
 
 // Генерация уникального ID игры

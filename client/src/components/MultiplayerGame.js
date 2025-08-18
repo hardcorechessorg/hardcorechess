@@ -483,6 +483,7 @@ const MultiplayerGame = () => {
           position={gameData.fen}
           onPieceDrop={handleMove}
           boardWidth={600}
+          boardOrientation={gameData.color === 'w' ? 'white' : 'black'}
         />
         
         {gameData.isGameOver && (
