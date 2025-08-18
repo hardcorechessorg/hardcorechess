@@ -29,6 +29,7 @@ const LegalPage = () => {
         <h3>Реквизиты</h3>
         <p><strong>ИНН:</strong> 027370973970</p>
         <p><strong>Чичеров Платон Артурович</strong></p>
+        <p><strong>респ.Татарстан с.Сапуголи ул. Исконная д.13</strong></p>
       </section>
 
       <section style={{ marginTop: 16 }}>
