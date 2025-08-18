@@ -120,36 +120,21 @@ const ComputerGame = () => {
   };
 
   return (
-    <div style={{ textAlign: 'center' }}>
+    <div className="section">
       <button 
         onClick={() => navigate('/')}
-        style={{
-          position: 'absolute',
-          top: '20px',
-          left: '20px',
-          padding: '10px 20px',
-          backgroundColor: '#666',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}
+        className="button"
+        style={{ marginBottom: 12 }}
       >
-        ← Назад
+        Назад
       </button>
       
-      <h2>🤖 Игра против компьютера</h2>
+      <h2>Игра против компьютера</h2>
       
       {/* Настройки игры */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        gap: '20px', 
-        marginBottom: '20px',
-        flexWrap: 'wrap'
-      }}>
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="panel">
+          <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>
             Сложность: {difficulty}/10
           </label>
           <input
@@ -158,106 +143,68 @@ const ComputerGame = () => {
             max="10"
             value={difficulty}
             onChange={(e) => changeDifficulty(parseInt(e.target.value))}
-            style={{ width: '150px' }}
+            style={{ width: 180 }}
           />
         </div>
         
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+        <div className="panel">
+          <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>
             Цвет фигур:
           </label>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={() => changePlayerColor('w')}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: playerColor === 'w' ? '#4CAF50' : '#ddd',
-                color: playerColor === 'w' ? 'white' : 'black',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
+              className={`button ${playerColor === 'w' ? 'primary' : ''}`}
             >
               Белые
             </button>
             <button
               onClick={() => changePlayerColor('b')}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: playerColor === 'b' ? '#4CAF50' : '#ddd',
-                color: playerColor === 'b' ? 'white' : 'black',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
+              className={`button ${playerColor === 'b' ? 'primary' : ''}`}
             >
-              Черные
+              Чёрные
             </button>
           </div>
         </div>
       </div>
       
-      <button
-        onClick={startNewGame}
-        style={{
-          padding: '12px 24px',
-          fontSize: '1.1em',
-          backgroundColor: '#FF9800',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          marginBottom: '20px'
-        }}
-      >
+      <button onClick={startNewGame} className="button" style={{ marginBottom: 16 }}>
         Новая игра
       </button>
       
       {/* Информация о текущем состоянии */}
-      <div style={{ marginBottom: '20px' }}>
-        <p><strong>Ход:</strong> {game.turn() === 'w' ? 'белых' : 'черных'}</p>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <p className="kicker"><strong>Ход:</strong> {game.turn() === 'w' ? 'белых' : 'чёрных'}</p>
         {game.turn() === playerColor ? (
-          <p style={{ color: '#4CAF50', fontWeight: 'bold' }}>Ваш ход!</p>
+          <p className="kicker" style={{ color: '#81c784' }}>Ваш ход</p>
         ) : (
-          <p style={{ color: '#2196F3', fontWeight: 'bold' }}>
-            {isThinking ? 'Компьютер думает...' : 'Ход компьютера'}
+          <p className="kicker" style={{ color: '#8ab4f8' }}>
+            {isThinking ? 'Компьютер думает…' : 'Ход компьютера'}
           </p>
         )}
       </div>
       
       {/* Шахматная доска */}
-      <Chessboard
-        position={game.fen()}
-        onPieceDrop={handleMove}
-        boardWidth={600}
-        boardOrientation={playerColor === 'w' ? 'white' : 'black'}
-      />
+      <div className="board-wrap">
+        <Chessboard
+          position={game.fen()}
+          onPieceDrop={handleMove}
+          boardWidth={600}
+          boardOrientation={playerColor === 'w' ? 'white' : 'black'}
+        />
+      </div>
       
       {/* Результат игры */}
       {isGameOver && (
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '15px',
-          backgroundColor: '#ffebee',
-          borderRadius: '10px',
-          color: '#c62828',
-          fontWeight: 'bold',
-          fontSize: '1.2em'
-        }}>
+        <div className="panel" style={{ marginTop: 16, color: '#ff8a80', fontWeight: 'bold' }}>
           {result}
         </div>
       )}
       
       {/* Индикатор загрузки */}
       {isThinking && (
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '10px',
-          backgroundColor: '#e3f2fd',
-          borderRadius: '8px',
-          color: '#1976d2'
-        }}>
-          Компьютер анализирует позицию... ⏳
+        <div className="panel" style={{ marginTop: 16, color: '#8ab4f8' }}>
+          Компьютер анализирует позицию…
         </div>
       )}
     </div>

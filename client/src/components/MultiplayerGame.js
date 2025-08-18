@@ -146,7 +146,6 @@ const MultiplayerGame = () => {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(joinUrl);
-    // Можно добавить уведомление об успешном копировании
   };
 
   useEffect(() => {
@@ -159,100 +158,49 @@ const MultiplayerGame = () => {
 
   if (gameState === 'menu') {
     return (
-      <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-        <button 
-          onClick={() => navigate('/')}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            left: '20px',
-            padding: '10px 20px',
-            backgroundColor: '#666',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Назад
-        </button>
+      <div className="section">
+        <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
+        <h2>Многопользовательская игра</h2>
         
-        <h2>🎮 Многопользовательская игра</h2>
-        
-        <div style={{ marginTop: '30px' }}>
-          <button
-            onClick={createNewGame}
-            style={{
-              padding: '15px 30px',
-              fontSize: '1.2em',
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              margin: '10px',
-              width: '200px'
-            }}
-          >
-            Создать игру
-          </button>
-          
-          <div style={{ margin: '20px 0', fontSize: '1.1em' }}>
-            или
-          </div>
-          
-          <div style={{ marginTop: '20px' }}>
+        <div style={{ marginTop: 16 }}>
+          <button onClick={createNewGame} className="button primary">Создать игру</button>
+          <div className="section">
             <input
               type="text"
               placeholder="ID игры"
               value={gameId}
               onChange={(e) => setGameId(e.target.value)}
               style={{
-                padding: '12px',
-                fontSize: '1em',
-                width: '200px',
-                margin: '5px',
-                borderRadius: '5px',
-                border: '1px solid #ddd'
+                padding: '10px 12px',
+                width: 220,
+                marginRight: 8,
+                borderRadius: 6,
+                border: '1px solid #3a3a3a',
+                background: '#2a2a2a',
+                color: '#e6e6e6'
               }}
             />
-            <br />
             <input
               type="text"
               placeholder="Ваше имя"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               style={{
-                padding: '12px',
-                fontSize: '1em',
-                width: '200px',
-                margin: '5px',
-                borderRadius: '5px',
-                border: '1px solid #ddd'
+                padding: '10px 12px',
+                width: 220,
+                marginRight: 8,
+                borderRadius: 6,
+                border: '1px solid #3a3a3a',
+                background: '#2a2a2a',
+                color: '#e6e6e6'
               }}
             />
-            <br />
-            <button
-              onClick={joinGame}
-              style={{
-                padding: '12px 25px',
-                fontSize: '1em',
-                backgroundColor: '#2196F3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                margin: '10px',
-                width: '200px'
-              }}
-            >
-              Присоединиться
-            </button>
+            <button onClick={joinGame} className="button">Присоединиться</button>
           </div>
         </div>
         
         {error && (
-          <div style={{ color: 'red', marginTop: '20px' }}>
+          <div className="panel" style={{ marginTop: 16, color: '#ff8a80' }}>
             {error}
           </div>
         )}
@@ -262,72 +210,36 @@ const MultiplayerGame = () => {
 
   if (gameState === 'joining') {
     return (
-      <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-        <button 
-          onClick={() => navigate('/')}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            left: '20px',
-            padding: '10px 20px',
-            backgroundColor: '#666',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Назад
-        </button>
+      <div className="section">
+        <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
+        <h2>Присоединиться к игре</h2>
         
-        <h2>🎮 Присоединиться к игре</h2>
-        
-        <div style={{ 
-          backgroundColor: '#e3f2fd', 
-          padding: '20px', 
-          borderRadius: '10px',
-          margin: '20px 0'
-        }}>
-          <p><strong>ID игры:</strong> {gameId}</p>
-          <p>Введите ваше имя, чтобы присоединиться к игре.</p>
+        <div className="panel" style={{ marginTop: 16 }}>
+          <p className="kicker"><strong>ID игры:</strong> {gameId}</p>
+          <p className="kicker">Введите ваше имя, чтобы присоединиться к игре.</p>
         </div>
         
-        <div style={{ marginTop: '30px' }}>
+        <div className="section">
           <input
             type="text"
             placeholder="Ваше имя"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             style={{
-              padding: '12px',
-              fontSize: '1em',
-              width: '200px',
-              margin: '5px',
-              borderRadius: '5px',
-              border: '1px solid #ddd'
+              padding: '10px 12px',
+              width: 220,
+              marginRight: 8,
+              borderRadius: 6,
+              border: '1px solid #3a3a3a',
+              background: '#2a2a2a',
+              color: '#e6e6e6'
             }}
           />
-          <br />
-          <button
-            onClick={joinGame}
-            style={{
-              padding: '12px 25px',
-              fontSize: '1em',
-              backgroundColor: '#2196F3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              margin: '10px',
-              width: '200px'
-            }}
-          >
-            Присоединиться к игре
-          </button>
+          <button onClick={joinGame} className="button">Присоединиться к игре</button>
         </div>
         
         {error && (
-          <div style={{ color: 'red', marginTop: '20px' }}>
+          <div className="panel" style={{ marginTop: 16, color: '#ff8a80' }}>
             {error}
           </div>
         )}
@@ -337,112 +249,49 @@ const MultiplayerGame = () => {
 
   if (gameState === 'creating') {
     return (
-      <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-        <button 
-          onClick={() => navigate('/')}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            left: '20px',
-            padding: '10px 20px',
-            backgroundColor: '#666',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Назад
-        </button>
+      <div className="section">
+        <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
+        <h2>Игра создана</h2>
         
-        <h2>🎮 Игра создана!</h2>
-        
-        <div style={{ 
-          backgroundColor: '#f0f0f0', 
-          padding: '20px', 
-          borderRadius: '10px',
-          margin: '20px 0'
-        }}>
-          <p><strong>ID игры:</strong> {gameId}</p>
-          <p><strong>Ссылка для друга:</strong></p>
+        <div className="panel" style={{ marginTop: 16 }}>
+          <p className="kicker"><strong>ID игры:</strong> {gameId}</p>
+          <p className="kicker"><strong>Ссылка для друга:</strong></p>
           <input
             type="text"
             value={joinUrl}
             readOnly
             style={{
               width: '100%',
-              padding: '10px',
-              fontSize: '1em',
-              border: '1px solid #ddd',
-              borderRadius: '5px',
-              backgroundColor: 'white'
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: '1px solid #3a3a3a',
+              background: '#2a2a2a',
+              color: '#e6e6e6'
             }}
           />
-          <div style={{ marginTop: '15px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <button
-              onClick={copyToClipboard}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              Копировать ссылку
-            </button>
-            <button
-              onClick={openGameInNewTab}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#2196F3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              Открыть в новой вкладке
-            </button>
+          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+            <button onClick={copyToClipboard} className="button">Копировать ссылку</button>
+            <button onClick={openGameInNewTab} className="button info">Открыть в новой вкладке</button>
           </div>
         </div>
         
-        <p>Отправьте эту ссылку другу, чтобы он мог присоединиться к игре.</p>
-        <p>Ожидание второго игрока...</p>
-        
-        <div style={{ marginTop: '30px' }}>
+        <div className="section">
           <input
             type="text"
             placeholder="Ваше имя"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             style={{
-              padding: '12px',
-              fontSize: '1em',
-              width: '200px',
-              margin: '5px',
-              borderRadius: '5px',
-              border: '1px solid #ddd'
+              padding: '10px 12px',
+              width: 220,
+              marginRight: 8,
+              borderRadius: 6,
+              border: '1px solid #3a3a3a',
+              background: '#2a2a2a',
+              color: '#e6e6e6'
             }}
           />
-          <br />
-          <button
-            onClick={joinGame}
-            style={{
-              padding: '12px 25px',
-              fontSize: '1em',
-              backgroundColor: '#2196F3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              margin: '10px',
-              width: '200px'
-            }}
-          >
-            Присоединиться как создатель
-          </button>
+          <button onClick={joinGame} className="button">Присоединиться как создатель</button>
         </div>
       </div>
     );
@@ -450,58 +299,33 @@ const MultiplayerGame = () => {
 
   if (gameState === 'playing' && gameData) {
     return (
-      <div style={{ textAlign: 'center' }}>
-        <button 
-          onClick={() => navigate('/')}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            left: '20px',
-            padding: '10px 20px',
-            backgroundColor: '#666',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          ← Назад
-        </button>
+      <div className="section">
+        <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
+        <h2>Многопользовательская игра</h2>
         
-        <h2>🎮 Многопользовательская игра</h2>
-        
-        <div style={{ marginBottom: '20px' }}>
-          <p><strong>Игра:</strong> {gameId}</p>
-          <p><strong>Вы играете:</strong> {gameData.color === 'w' ? 'белыми' : 'черными'}</p>
-          <p><strong>Ход:</strong> {gameData.currentPlayer === 'w' ? 'белых' : 'черных'}</p>
-          {gameData.currentPlayer === gameData.color && (
-            <p style={{ color: '#4CAF50', fontWeight: 'bold' }}>Ваш ход!</p>
-          )}
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <p className="kicker"><strong>Игра:</strong> {gameId}</p>
+          <p className="kicker"><strong>Вы играете:</strong> {gameData.color === 'w' ? 'белыми' : 'чёрными'}</p>
+          <p className="kicker"><strong>Ход:</strong> {gameData.currentPlayer === 'w' ? 'белых' : 'чёрных'}</p>
         </div>
         
-        <Chessboard
-          position={gameData.fen}
-          onPieceDrop={handleMove}
-          boardWidth={600}
-          boardOrientation={gameData.color === 'w' ? 'white' : 'black'}
-        />
+        <div className="board-wrap">
+          <Chessboard
+            position={gameData.fen}
+            onPieceDrop={handleMove}
+            boardWidth={600}
+            boardOrientation={gameData.color === 'w' ? 'white' : 'black'}
+          />
+        </div>
         
         {gameData.isGameOver && (
-          <div style={{ 
-            marginTop: '20px', 
-            padding: '15px',
-            backgroundColor: '#ffebee',
-            borderRadius: '10px',
-            color: '#c62828',
-            fontWeight: 'bold',
-            fontSize: '1.2em'
-          }}>
+          <div className="panel" style={{ marginTop: 16, color: '#ff8a80', fontWeight: 'bold' }}>
             {gameData.result}
           </div>
         )}
         
         {error && (
-          <div style={{ color: 'red', marginTop: '20px' }}>
+          <div className="panel" style={{ marginTop: 16, color: '#ff8a80' }}>
             {error}
           </div>
         )}

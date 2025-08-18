@@ -51,58 +51,35 @@ const SinglePlayerGame = () => {
   }
 
   return (
-    <div style={{ textAlign: 'center' }}>
+    <div className="section">
       <button 
         onClick={() => navigate('/')}
-        style={{
-          position: 'absolute',
-          top: '20px',
-          left: '20px',
-          padding: '10px 20px',
-          backgroundColor: '#666',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}
+        className="button"
+        style={{ marginBottom: 12 }}
       >
-        ← Назад
+        Назад
       </button>
       
-      <h2>🧩 Одиночная игра</h2>
+      <h2>Одиночная игра</h2>
       
       <button 
         onClick={startNewGame}
-        style={{
-          padding: '12px 24px',
-          fontSize: '1.1em',
-          backgroundColor: '#FF9800',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          marginBottom: '20px'
-        }}
+        className="button"
+        style={{ marginBottom: 16 }}
       >
         Новая игра
       </button>
 
-      <Chessboard
-        position={fen}
-        onPieceDrop={handleMove}
-        boardWidth={600}
-      />
+      <div className="board-wrap">
+        <Chessboard
+          position={fen}
+          onPieceDrop={handleMove}
+          boardWidth={600}
+        />
+      </div>
 
       {isGameOver && (
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '15px',
-          backgroundColor: '#ffebee',
-          borderRadius: '10px',
-          color: '#c62828',
-          fontWeight: 'bold',
-          fontSize: '1.2em'
-        }}>
+        <div className="panel" style={{ marginTop: 16, color: '#ff8a80', fontWeight: 'bold' }}>
           {result}
         </div>
       )}

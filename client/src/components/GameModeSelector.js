@@ -7,75 +7,39 @@ const GameModeSelector = () => {
   const gameModes = [
     {
       id: 'multiplayer',
-      title: '🎮 Многопользовательская игра',
+      title: 'Многопользовательская игра',
       description: 'Играйте с другом по ссылке',
-      color: '#4CAF50',
       path: '/multiplayer'
     },
     {
       id: 'computer',
-      title: '🤖 Игра против компьютера',
-      description: 'Сразитесь с Stockfish',
-      color: '#2196F3',
+      title: 'Игра против компьютера',
+      description: 'Сразитесь с компьютером разной сложности',
       path: '/computer'
     },
     {
       id: 'single',
-      title: '🧩 Одиночная игра',
+      title: 'Одиночная игра',
       description: 'Тренируйтесь самостоятельно',
-      color: '#FF9800',
       path: '/single'
     }
   ];
 
   return (
-    <div style={{ textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>
-      <h2 style={{ marginBottom: '40px', color: '#333' }}>
-        Выберите режим игры
-      </h2>
-      
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: '20px',
-        marginTop: '30px'
-      }}>
+    <div className="section">
+      <p className="kicker">Выберите режим игры</p>
+      <div className="grid" style={{ marginTop: 16 }}>
         {gameModes.map((mode) => (
           <div
             key={mode.id}
+            className="card"
             onClick={() => navigate(mode.path)}
-            style={{
-              padding: '30px',
-              borderRadius: '15px',
-              backgroundColor: mode.color,
-              color: 'white',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-              border: 'none',
-              textAlign: 'center'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-5px)';
-              e.target.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
-            }}
+            style={{ cursor: 'pointer' }}
           >
-            <h3 style={{ margin: '0 0 15px 0', fontSize: '1.5em' }}>
-              {mode.title}
-            </h3>
-            <p style={{ margin: '0', opacity: '0.9', fontSize: '1.1em' }}>
-              {mode.description}
-            </p>
+            <h3 style={{ marginTop: 0 }}>{mode.title}</h3>
+            <p style={{ margin: 0 }}>{mode.description}</p>
           </div>
         ))}
-      </div>
-      
-      <div style={{ marginTop: '40px', color: '#666', fontSize: '0.9em' }}>
-        <p>♟ Разработано с любовью к шахматам</p>
       </div>
     </div>
   );

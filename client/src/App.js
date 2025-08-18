@@ -9,19 +9,18 @@ import LegalPage from './components/LegalPage';
 function App() {
   return (
     <Router>
-      <div style={{ padding: 20, maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>♟ Hardcore Chess</h1>
-          <nav style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Link to="/" style={{ textDecoration: 'none' }}>Главная</Link>
-            <Link to="/multiplayer" style={{ textDecoration: 'none' }}>Мультиплеер</Link>
-            <Link to="/computer" style={{ textDecoration: 'none' }}>С компьютером</Link>
-            <Link to="/single" style={{ textDecoration: 'none' }}>Одиночная</Link>
-            <Link to="/support" style={{ textDecoration: 'none', padding: '8px 14px', backgroundColor: '#4CAF50', color: 'white', borderRadius: 8 }}>Поддержать проект</Link>
-            <Link to="/legal" style={{ textDecoration: 'none' }}>Оферта и контакты</Link>
+      <div className="app-container">
+        <div className="header">
+          <h1 className="brand">Hardcore Chess</h1>
+          <nav className="nav">
+            <Link to="/">Главная</Link>
+            <Link to="/multiplayer">Мультиплеер</Link>
+            <Link to="/computer">С компьютером</Link>
+            <Link to="/single">Одиночная</Link>
+            <Link to="/support" className="cta">Поддержать проект</Link>
+            <Link to="/legal">Оферта и контакты</Link>
           </nav>
         </div>
-        <div style={{ height: 12 }} />
         <Routes>
           <Route path="/" element={<GameModeSelector />} />
           <Route path="/multiplayer" element={<MultiplayerGame />} />
