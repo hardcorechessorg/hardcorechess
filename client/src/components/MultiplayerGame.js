@@ -1,6 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Chess } from 'chess.js';
+
+const formatMs = (ms) => {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+};
 
 const MultiplayerGame = () => {
   const navigate = useNavigate();
@@ -13,6 +21,23 @@ const MultiplayerGame = () => {
   const [error, setError] = useState('');
   const [ws, setWs] = useState(null);
 
+  // time control
+  const [minutes, setMinutes] = useState(5);
+  const [increment, setIncrement] = useState(0);
+
+  // auth token
+  const [authToken, setAuthToken] = useState('');
+
+  // local chess to compute SAN and history
+  const [chess, setChess] = useState(() => new Chess());
+  const [movesSan, setMovesSan] = useState([]);
+
+  // live clock display
+  const [clock, setClock] = useState({ wMs: 0, bMs: 0 });
+  const [lastSyncAt, setLastSyncAt] = useState(null);
+  const [currentPlayer, setCurrentPlayer] = useState('w');
+  const [isGameOver, setIsGameOver] = useState(false);
+
   // Проверяем, есть ли параметр join в URL
   useEffect(() => {
     const joinGameId = searchParams.get('join');
@@ -24,18 +49,19 @@ const MultiplayerGame = () => {
 
   const createNewGame = async () => {
     try {
-      // Сервер на Render, клиент на hardcorechess.org
       const response = await fetch('https://hardcorechess.onrender.com/create-multiplayer-game', {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes, increment })
       });
       const data = await response.json();
       
       setGameId(data.gameId);
-      // Создаем правильную ссылку для присоединения с HashRouter
       const joinLink = `${window.location.origin}/#/multiplayer?join=${data.gameId}`;
       setJoinUrl(joinLink);
       setGameState('creating');
       setError('');
+      setClock(data.clock || { wMs: minutes * 60000, bMs: minutes * 60000 });
     } catch (err) {
       setError('Ошибка при создании игры');
     }
@@ -61,26 +87,43 @@ const MultiplayerGame = () => {
         return;
       }
 
+      setAuthToken(data.token || '');
       setGameData(data);
       setGameState('playing');
       connectWebSocket(gameId);
       setError('');
+
+      // reset local chess from FEN
+      const c = new Chess(data.fen);
+      setChess(c);
+      setMovesSan([]);
+      setClock(data.clock || { wMs: (data.timeControl?.minutes || 5) * 60000, bMs: (data.timeControl?.minutes || 5) * 60000 });
+      setLastSyncAt(Date.now());
+      setCurrentPlayer(data.currentPlayer || 'w');
+      setIsGameOver(false);
     } catch (err) {
       setError('Ошибка при присоединении к игре');
     }
   };
 
   const connectWebSocket = (gameId) => {
-    // WebSocket к серверу на Render
     const websocket = new WebSocket(`wss://hardcorechess.onrender.com?gameId=${gameId}`);
     
     websocket.onopen = () => {
-      console.log('WebSocket соединение установлено');
+      // connected
     };
     
     websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'move') {
+        // try to apply move to local chess to compute SAN
+        try {
+          const move = chess.move({ from: data.from, to: data.to });
+          if (move) {
+            setMovesSan(prev => [...prev, move.san]);
+            setChess(new Chess(chess.fen()));
+          }
+        } catch {}
         setGameData(prev => ({
           ...prev,
           fen: data.fen,
@@ -88,23 +131,23 @@ const MultiplayerGame = () => {
           isGameOver: data.isGameOver,
           result: data.result
         }));
+        if (data.clock) {
+          setClock(data.clock);
+          setLastSyncAt(Date.now());
+        }
+        setCurrentPlayer(data.currentPlayer);
+        setIsGameOver(!!data.isGameOver);
       }
     };
     
-    websocket.onerror = (error) => {
-      console.error('WebSocket ошибка:', error);
-    };
+    websocket.onerror = () => {};
     
     setWs(websocket);
   };
 
   const handleMove = async (sourceSquare, targetSquare) => {
     if (!gameData || gameData.isGameOver) return false;
-    
-    // Проверяем, чей ход
-    if (gameData.currentPlayer !== gameData.color) {
-      return false; // Не ваш ход
-    }
+    if (gameData.currentPlayer !== gameData.color) return false;
 
     try {
       const response = await fetch('https://hardcorechess.onrender.com/multiplayer-move', {
@@ -115,7 +158,7 @@ const MultiplayerGame = () => {
           from: sourceSquare,
           to: targetSquare,
           playerColor: gameData.color,
-          authToken: gameData.token
+          authToken
         })
       });
       
@@ -126,6 +169,15 @@ const MultiplayerGame = () => {
         return false;
       }
 
+      // update local chess and history
+      try {
+        const move = chess.move({ from: sourceSquare, to: targetSquare });
+        if (move) {
+          setMovesSan(prev => [...prev, move.san]);
+          setChess(new Chess(chess.fen()));
+        }
+      } catch {}
+
       setGameData(prev => ({
         ...prev,
         fen: data.fen,
@@ -133,6 +185,12 @@ const MultiplayerGame = () => {
         isGameOver: data.isGameOver,
         result: data.result
       }));
+      if (data.clock) {
+        setClock(data.clock);
+        setLastSyncAt(Date.now());
+      }
+      setCurrentPlayer(data.currentPlayer);
+      setIsGameOver(!!data.isGameOver);
 
       return true;
     } catch (err) {
@@ -149,11 +207,32 @@ const MultiplayerGame = () => {
     navigator.clipboard.writeText(joinUrl);
   };
 
+  // live ticking effect
+  const displayedClock = useMemo(() => {
+    if (!lastSyncAt || isGameOver) return clock;
+    const now = Date.now();
+    const elapsed = Math.max(0, now - lastSyncAt);
+    if (currentPlayer === 'w') {
+      return { wMs: Math.max(0, clock.wMs - elapsed), bMs: clock.bMs };
+    } else {
+      return { wMs: clock.wMs, bMs: Math.max(0, clock.bMs - elapsed) };
+    }
+  }, [clock, lastSyncAt, currentPlayer, isGameOver]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      // trigger re-render by updating lastSyncAt clone
+      if (!isGameOver && lastSyncAt) {
+        // noop, rely on useMemo; force update by setting state with same value
+        setLastSyncAt((v) => v);
+      }
+    }, 250);
+    return () => clearInterval(id);
+  }, [lastSyncAt, isGameOver]);
+
   useEffect(() => {
     return () => {
-      if (ws) {
-        ws.close();
-      }
+      if (ws) ws.close();
     };
   }, [ws]);
 
@@ -162,44 +241,57 @@ const MultiplayerGame = () => {
       <div className="section">
         <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
         <h2>Многопользовательская игра</h2>
-        
-        <div style={{ marginTop: 16 }}>
-          <button onClick={createNewGame} className="button primary">Создать игру</button>
-          <div className="section">
-            <input
-              type="text"
-              placeholder="ID игры"
-              value={gameId}
-              onChange={(e) => setGameId(e.target.value)}
-              style={{
-                padding: '10px 12px',
-                width: 220,
-                marginRight: 8,
-                borderRadius: 6,
-                border: '1px solid #3a3a3a',
-                background: '#2a2a2a',
-                color: '#e6e6e6'
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Ваше имя"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              style={{
-                padding: '10px 12px',
-                width: 220,
-                marginRight: 8,
-                borderRadius: 6,
-                border: '1px solid #3a3a3a',
-                background: '#2a2a2a',
-                color: '#e6e6e6'
-              }}
-            />
-            <button onClick={joinGame} className="button">Присоединиться</button>
+
+        <div className="panel" style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div>
+            <label className="kicker">Минуты</label>
+            <input type="number" min={1} max={180} value={minutes}
+              onChange={(e) => setMinutes(Number(e.target.value))}
+              style={{ width: 80, padding: '8px', borderRadius: 6, border: '1px solid #3a3a3a', background: '#2a2a2a', color: '#e6e6e6' }} />
           </div>
+          <div>
+            <label className="kicker">Инкремент (сек)</label>
+            <input type="number" min={0} max={60} value={increment}
+              onChange={(e) => setIncrement(Number(e.target.value))}
+              style={{ width: 120, padding: '8px', borderRadius: 6, border: '1px solid #3a3a3a', background: '#2a2a2a', color: '#e6e6e6' }} />
+          </div>
+          <button onClick={createNewGame} className="button primary">Создать игру</button>
         </div>
-        
+
+        <div className="section">
+          <input
+            type="text"
+            placeholder="ID игры"
+            value={gameId}
+            onChange={(e) => setGameId(e.target.value)}
+            style={{
+              padding: '10px 12px',
+              width: 220,
+              marginRight: 8,
+              borderRadius: 6,
+              border: '1px solid #3a3a3a',
+              background: '#2a2a2a',
+              color: '#e6e6e6'
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Ваше имя"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            style={{
+              padding: '10px 12px',
+              width: 220,
+              marginRight: 8,
+              borderRadius: 6,
+              border: '1px solid #3a3a3a',
+              background: '#2a2a2a',
+              color: '#e6e6e6'
+            }}
+          />
+          <button onClick={joinGame} className="button">Присоединиться</button>
+        </div>
+
         {error && (
           <div className="panel" style={{ marginTop: 16, color: '#ff8a80' }}>
             {error}
@@ -256,6 +348,7 @@ const MultiplayerGame = () => {
         
         <div className="panel" style={{ marginTop: 16 }}>
           <p className="kicker"><strong>ID игры:</strong> {gameId}</p>
+          <p className="kicker"><strong>Контроль времени:</strong> {minutes}+{increment}</p>
           <p className="kicker"><strong>Ссылка для друга:</strong></p>
           <input
             type="text"
@@ -275,61 +368,70 @@ const MultiplayerGame = () => {
             <button onClick={openGameInNewTab} className="button info">Открыть в новой вкладке</button>
           </div>
         </div>
-        
-        <div className="section">
-          <input
-            type="text"
-            placeholder="Ваше имя"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            style={{
-              padding: '10px 12px',
-              width: 220,
-              marginRight: 8,
-              borderRadius: 6,
-              border: '1px solid #3a3a3a',
-              background: '#2a2a2a',
-              color: '#e6e6e6'
-            }}
-          />
-          <button onClick={joinGame} className="button">Присоединиться как создатель</button>
-        </div>
       </div>
     );
   }
 
   if (gameState === 'playing' && gameData) {
     return (
-      <div className="section">
-        <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
-        <h2>Многопользовательская игра</h2>
-        
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <p className="kicker"><strong>Игра:</strong> {gameId}</p>
-          <p className="kicker"><strong>Вы играете:</strong> {gameData.color === 'w' ? 'белыми' : 'чёрными'}</p>
-          <p className="kicker"><strong>Ход:</strong> {gameData.currentPlayer === 'w' ? 'белых' : 'чёрных'}</p>
-        </div>
-        
-        <div className="board-wrap">
-          <Chessboard
-            position={gameData.fen}
-            onPieceDrop={handleMove}
-            boardWidth={600}
-            boardOrientation={gameData.color === 'w' ? 'white' : 'black'}
-          />
-        </div>
-        
-        {gameData.isGameOver && (
-          <div className="panel" style={{ marginTop: 16, color: '#ff8a80', fontWeight: 'bold' }}>
-            {gameData.result}
+      <div className="section" style={{ display: 'grid', gridTemplateColumns: 'minmax(600px, 1fr) 320px', gap: 16 }}>
+        <div>
+          <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
+          <h2>Многопользовательская игра</h2>
+          
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <p className="kicker"><strong>Вы играете:</strong> {gameData.color === 'w' ? 'белыми' : 'чёрными'}</p>
+            <p className="kicker"><strong>Ход:</strong> {gameData.currentPlayer === 'w' ? 'белых' : 'чёрных'}</p>
           </div>
-        )}
-        
-        {error && (
-          <div className="panel" style={{ marginTop: 16, color: '#ff8a80' }}>
-            {error}
+          
+          <div className="board-wrap">
+            <Chessboard
+              position={gameData.fen}
+              onPieceDrop={handleMove}
+              boardWidth={600}
+              boardOrientation={gameData.color === 'w' ? 'white' : 'black'}
+            />
           </div>
-        )}
+          
+          {gameData.isGameOver && (
+            <div className="panel" style={{ marginTop: 16, color: '#ff8a80', fontWeight: 'bold' }}>
+              {gameData.result}
+            </div>
+          )}
+          
+          {error && (
+            <div className="panel" style={{ marginTop: 16, color: '#ff8a80' }}>
+              {error}
+            </div>
+          )}
+        </div>
+        <div>
+          <div className="panel">
+            <h3 style={{ marginTop: 0 }}>Часы</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Белые</span>
+                <strong>{formatMs(displayedClock.wMs)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Чёрные</span>
+                <strong>{formatMs(displayedClock.bMs)}</strong>
+              </div>
+            </div>
+          </div>
+          <div className="panel" style={{ marginTop: 12, maxHeight: 360, overflow: 'auto' }}>
+            <h3 style={{ marginTop: 0 }}>История ходов</h3>
+            {movesSan.length === 0 ? (
+              <p className="kicker">Пока нет ходов</p>
+            ) : (
+              <ol style={{ paddingLeft: 18 }}>
+                {movesSan.map((san, idx) => (
+                  <li key={idx} style={{ marginBottom: 4 }}>{san}</li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
       </div>
     );
   }

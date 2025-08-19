@@ -73,6 +73,10 @@ const joinBodySchema = z.object({
   gameId: gameIdSchema,
   playerName: playerNameSchema
 });
+const createBodySchema = z.object({
+  minutes: z.number().int().min(1).max(180).optional(),
+  increment: z.number().int().min(0).max(60).optional()
+});
 const stockfishBodySchema = z.object({
   fen: z.string().min(3).max(120),
   difficulty: z.number().int().min(1).max(10)
@@ -88,15 +92,25 @@ function generateToken() {
 
 // API маршруты
 app.post("/create-multiplayer-game", createJoinLimiter, (req, res) => {
+  const parseTc = createBodySchema.safeParse(req.body || {});
+  const minutes = parseTc.success && typeof parseTc.data.minutes === 'number' ? parseTc.data.minutes : 5;
+  const increment = parseTc.success && typeof parseTc.data.increment === 'number' ? parseTc.data.increment : 0;
+
   const gameId = generateGameId();
   const game = new Chess();
+
+  const initialMs = minutes * 60 * 1000;
+  const incrementMs = increment * 1000;
   
   games.set(gameId, {
     chess: game,
     players: [],
     spectators: [],
     currentPlayer: 'w', // белые всегда начинают
-    status: 'waiting' // waiting, playing, finished
+    status: 'waiting', // waiting, playing, finished
+    timeControl: { initialMs, incrementMs },
+    clock: { wMs: initialMs, bMs: initialMs },
+    lastMoveAt: null
   });
   
   gameRooms.set(gameId, new Set());
@@ -105,7 +119,9 @@ app.post("/create-multiplayer-game", createJoinLimiter, (req, res) => {
     gameId, 
     // Сервер на Render, клиент на hardcorechess.org
     joinUrl: `https://www.hardcorechess.org/#/multiplayer?join=${gameId}`,
-    fen: game.fen() 
+    fen: game.fen(),
+    timeControl: { minutes, increment },
+    clock: { wMs: initialMs, bMs: initialMs }
   });
 });
 
@@ -136,6 +152,7 @@ app.post("/join-game", createJoinLimiter, (req, res) => {
     game.status = 'playing';
     // Белые всегда начинают
     game.currentPlayer = 'w';
+    game.lastMoveAt = Date.now();
   }
   
   res.json({ 
@@ -144,7 +161,12 @@ app.post("/join-game", createJoinLimiter, (req, res) => {
     fen: game.chess.fen(),
     players: game.players.map(p => ({ name: p.name, color: p.color })),
     currentPlayer: game.currentPlayer,
-    token
+    token,
+    timeControl: {
+      minutes: Math.round(game.timeControl.initialMs / 60000),
+      increment: Math.round(game.timeControl.incrementMs / 1000)
+    },
+    clock: game.clock
   });
 });
 
@@ -161,7 +183,12 @@ app.get("/game/:gameId", (req, res) => {
     fen: game.chess.fen(),
     players: game.players.map(p => ({ name: p.name, color: p.color })),
     status: game.status,
-    currentPlayer: game.currentPlayer
+    currentPlayer: game.currentPlayer,
+    timeControl: {
+      minutes: Math.round(game.timeControl.initialMs / 60000),
+      increment: Math.round(game.timeControl.incrementMs / 1000)
+    },
+    clock: game.clock
   });
 });
 
@@ -188,13 +215,46 @@ app.post("/multiplayer-move", moveLimiter, (req, res) => {
     return res.status(400).json({ error: "Не ваш ход" });
   }
   
+  // Обновляем часы текущего игрока
+  const now = Date.now();
+  if (game.lastMoveAt) {
+    const elapsed = now - game.lastMoveAt;
+    if (game.currentPlayer === 'w') {
+      game.clock.wMs = Math.max(0, game.clock.wMs - elapsed);
+    } else {
+      game.clock.bMs = Math.max(0, game.clock.bMs - elapsed);
+    }
+  }
+
+  // Проверка на флаг по времени
+  if (game.clock.wMs <= 0 || game.clock.bMs <= 0) {
+    game.status = 'finished';
+    const loser = game.clock.wMs <= 0 ? 'w' : 'b';
+    const result = loser === 'w' ? 'Поражение по времени (белые)' : 'Поражение по времени (чёрные)';
+    return res.json({
+      fen: game.chess.fen(),
+      currentPlayer: game.currentPlayer,
+      isGameOver: true,
+      result,
+      clock: game.clock
+    });
+  }
+
   const move = game.chess.move({ from, to });
   if (!move) {
     return res.json({ error: "Неверный ход" });
   }
   
-  // Переключаем игрока
+  // Инкремент игроку, сделавшему ход
+  if (game.currentPlayer === 'w') {
+    game.clock.wMs += game.timeControl.incrementMs;
+  } else {
+    game.clock.bMs += game.timeControl.incrementMs;
+  }
+
+  // Переключаем игрока и фиксируем момент
   game.currentPlayer = game.currentPlayer === 'w' ? 'b' : 'w';
+  game.lastMoveAt = now;
   
   let isGameOver = game.chess.isGameOver();
   let result = null;
@@ -217,7 +277,8 @@ app.post("/multiplayer-move", moveLimiter, (req, res) => {
           to,
           currentPlayer: game.currentPlayer,
           isGameOver,
-          result
+          result,
+          clock: game.clock
         }));
       }
     });
@@ -227,7 +288,8 @@ app.post("/multiplayer-move", moveLimiter, (req, res) => {
     fen: game.chess.fen(),
     currentPlayer: game.currentPlayer,
     isGameOver,
-    result
+    result,
+    clock: game.clock
   });
 });
 
@@ -314,13 +376,12 @@ async function getStockfishMove(fen, difficulty) {
   // 1-3 → 1, 4-6 → 2, 7-8 → 3, 9-10 → 4
   const depth = difficulty >= 9 ? 4 : difficulty >= 7 ? 3 : difficulty >= 4 ? 2 : 1;
 
-  // Небольшой стохастический фактор для низких сложностей
+  // Небольшой стохастический фактор для низких уровней
   const addNoise = difficulty <= 3;
 
   // Оценочная функция (материал + простая мобильность)
   function evaluatePosition(evalGame) {
     if (evalGame.isCheckmate()) {
-      // Если мат текущему игроку, это очень плохо, иначе очень хорошо
       return evalGame.turn() === 'w' ? -Infinity : Infinity;
     }
     if (evalGame.isDraw()) return 0;
@@ -337,7 +398,6 @@ async function getStockfishMove(fen, difficulty) {
       }
     }
 
-    // Мобильность: количество ходов (белые - черные) * небольшой коэффициент
     const whiteMoves = countMovesFor(evalGame, 'w');
     const blackMoves = countMovesFor(evalGame, 'b');
     score += (whiteMoves - blackMoves) * 2;
@@ -347,22 +407,14 @@ async function getStockfishMove(fen, difficulty) {
 
   function countMovesFor(baseGame, color) {
     const g = new Chess(baseGame.fen());
-    if (g.turn() !== color) {
-      // Сделаем пустой ход для смены стороны? Нельзя. Просто считаем грубо: переведем ход цвету
-      // Создадим позицию и просчитаем без изменения хода
-    }
+    if (g.turn() !== color) return 0;
     try {
-      // chess.js генерирует ходы только для текущего игрока
-      // Если не его ход, тогда временно сделаем null move симуляцией: перебор всех ходов соперника и суммирование? Это дорого.
-      // Упростим: если не его ход, вернем 0; мобильность учитывается приблизительно.
-      if (g.turn() !== color) return 0;
       return g.moves().length;
     } catch {
       return 0;
     }
   }
 
-  // Упорядочивание ходов: сначала взятия, затем остальные
   function orderMoves(g, moves) {
     return moves.sort((a, b) => {
       const am = g.move(a); g.undo();
@@ -404,7 +456,6 @@ async function getStockfishMove(fen, difficulty) {
     }
   }
 
-  // Определяем, кто делает ход в текущей позиции
   const maximizing = game.turn() === 'w';
   let bestScore = maximizing ? -Infinity : Infinity;
   let bestMoves = [];
@@ -422,7 +473,6 @@ async function getStockfishMove(fen, difficulty) {
     }
   }
 
-  // Небольшая случайность на низких уровнях
   const chosen = addNoise && bestMoves.length > 1
     ? bestMoves[Math.floor(Math.random() * bestMoves.length)]
     : bestMoves[0] || legalMoves[0];
