@@ -39,7 +39,6 @@ const ComputerGame = () => {
 
   useEffect(() => {
     startNewGame();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Когда меняется цвет игрока, если компьютер ходит первым — сделать ход
@@ -47,7 +46,6 @@ const ComputerGame = () => {
     if (!isGameOver && playerColor === 'b' && game.turn() === 'w') {
       makeComputerMove();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerColor]);
 
   // Тикер для часов (каждые 200мс)
