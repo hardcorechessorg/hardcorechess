@@ -391,21 +391,6 @@ const MultiplayerGame = () => {
             />
           </div>
 
-          {/* Часы под доской */}
-          <div className="panel" style={{ marginTop: 12 }}>
-            <h3 style={{ marginTop: 0 }}>Часы</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Белые</span>
-                <strong>{formatMs(displayedClock.wMs)}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Чёрные</span>
-                <strong>{formatMs(displayedClock.bMs)}</strong>
-              </div>
-            </div>
-          </div>
-
           {gameData.isGameOver && (
             <div className="panel" style={{ marginTop: 12, color: '#ff8a80', fontWeight: 'bold' }}>
               {gameData.result}
@@ -419,9 +404,23 @@ const MultiplayerGame = () => {
           )}
         </div>
 
-        {/* История ходов справа */}
+        {/* Правая колонка: часы и история ходов */}
         <div>
-          <div className="panel" style={{ maxHeight: 520, overflow: 'auto' }}>
+          <div className="panel">
+            <h3 style={{ marginTop: 0 }}>Часы</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Белые</span>
+                <strong>{formatMs(displayedClock.wMs)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Чёрные</span>
+                <strong>{formatMs(displayedClock.bMs)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel" style={{ marginTop: 12, maxHeight: 520, overflow: 'auto' }}>
             <h3 style={{ marginTop: 0 }}>История ходов</h3>
             {rows.length === 0 ? (
               <p className="kicker">Пока нет ходов</p>

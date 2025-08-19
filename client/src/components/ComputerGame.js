@@ -41,14 +41,12 @@ const ComputerGame = () => {
     startNewGame();
   }, []);
 
-  // Когда меняется цвет игрока, если компьютер ходит первым — сделать ход
   useEffect(() => {
     if (!isGameOver && playerColor === 'b' && game.turn() === 'w') {
       makeComputerMove();
     }
   }, [playerColor]);
 
-  // Тикер для часов (каждые 200мс)
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 200);
     return () => clearInterval(id);
@@ -79,7 +77,6 @@ const ComputerGame = () => {
     setIsThinking(false);
     setMovesSan([]);
     resetClocks(minutes, increment);
-    // Если игрок выбирает чёрных — компьютер начинает
     if (playerColor === 'b') {
       setTimeout(() => makeComputerMove(), 50);
     }
@@ -90,7 +87,6 @@ const ComputerGame = () => {
     setResult(loser === 'w' ? 'Поражение по времени (белые)' : 'Поражение по времени (чёрные)');
   };
 
-  // Списать время текущего игрока и добавить инкремент сделавшему ход
   const settleTimeAfterMove = (movedColor) => {
     const now = Date.now();
     if (lastTurnStartAt != null) {
@@ -112,9 +108,7 @@ const ComputerGame = () => {
   const makeComputerMove = async () => {
     if (isGameOver || game.isGameOver()) return;
 
-    // Перед ходом компьютера — если его очередь, проверим просрочку
     if (game.turn() !== playerColor) {
-      // Текущий — компьютер
       const now = Date.now();
       if (lastTurnStartAt != null) {
         const elapsed = now - lastTurnStartAt;
@@ -144,8 +138,7 @@ const ComputerGame = () => {
       if (move) {
         setMovesSan(prev => [...prev, move.san]);
         setGame(new Chess(game.fen()));
-        // Списываем время компьютера и добавляем инкремент
-        const compColor = move.color; // цвет сделавшего ход ('w' или 'b')
+        const compColor = move.color;
         if (!settleTimeAfterMove(compColor)) return;
 
         if (game.isGameOver()) {
@@ -174,7 +167,6 @@ const ComputerGame = () => {
     setMovesSan(prev => [...prev, move.san]);
     setGame(new Chess(game.fen()));
 
-    // Списываем время игрока и добавляем инкремент
     if (!settleTimeAfterMove(move.color)) return true;
 
     if (game.isGameOver()) {
@@ -216,7 +208,6 @@ const ComputerGame = () => {
         
         <h2>Игра против компьютера</h2>
         
-        {/* Настройки игры */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
           <div className="panel">
             <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>
@@ -271,7 +262,6 @@ const ComputerGame = () => {
           Новая игра
         </button>
         
-        {/* Доска */}
         <div className="board-wrap">
           <Chessboard
             position={game.fen()}
@@ -279,21 +269,6 @@ const ComputerGame = () => {
             boardWidth={600}
             boardOrientation={playerColor === 'w' ? 'white' : 'black'}
           />
-        </div>
-
-        {/* Часы под доской */}
-        <div className="panel" style={{ marginTop: 12 }}>
-          <h3 style={{ marginTop: 0 }}>Часы</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Белые</span>
-              <strong>{formatMs(displayedClock.wMs)}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Чёрные</span>
-              <strong>{formatMs(displayedClock.bMs)}</strong>
-            </div>
-          </div>
         </div>
 
         {isGameOver && (
@@ -309,9 +284,22 @@ const ComputerGame = () => {
         )}
       </div>
 
-      {/* История ходов справа */}
       <div>
-        <div className="panel" style={{ maxHeight: 520, overflow: 'auto' }}>
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Часы</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Белые</span>
+              <strong>{formatMs(displayedClock.wMs)}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Чёрные</span>
+              <strong>{formatMs(displayedClock.bMs)}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel" style={{ marginTop: 12, maxHeight: 520, overflow: 'auto' }}>
           <h3 style={{ marginTop: 0 }}>История ходов</h3>
           {rows.length === 0 ? (
             <p className="kicker">Пока нет ходов</p>
