@@ -10,6 +10,14 @@ const formatMs = (ms) => {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 };
 
+const pairMoves = (sans) => {
+  const rows = [];
+  for (let i = 0; i < sans.length; i += 2) {
+    rows.push({ no: Math.floor(i / 2) + 1, w: sans[i] || '', b: sans[i + 1] || '' });
+  }
+  return rows;
+};
+
 const MultiplayerGame = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -37,6 +45,7 @@ const MultiplayerGame = () => {
   const [lastSyncAt, setLastSyncAt] = useState(null);
   const [currentPlayer, setCurrentPlayer] = useState('w');
   const [isGameOver, setIsGameOver] = useState(false);
+  const [tick, setTick] = useState(0);
 
   // Проверяем, есть ли параметр join в URL
   useEffect(() => {
@@ -109,14 +118,11 @@ const MultiplayerGame = () => {
   const connectWebSocket = (gameId) => {
     const websocket = new WebSocket(`wss://hardcorechess.onrender.com?gameId=${gameId}`);
     
-    websocket.onopen = () => {
-      // connected
-    };
+    websocket.onopen = () => {};
     
     websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'move') {
-        // try to apply move to local chess to compute SAN
         try {
           const move = chess.move({ from: data.from, to: data.to });
           if (move) {
@@ -169,7 +175,6 @@ const MultiplayerGame = () => {
         return false;
       }
 
-      // update local chess and history
       try {
         const move = chess.move({ from: sourceSquare, to: targetSquare });
         if (move) {
@@ -207,7 +212,12 @@ const MultiplayerGame = () => {
     navigator.clipboard.writeText(joinUrl);
   };
 
-  // live ticking effect
+  // live ticking effect (forces rerender each 200ms)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 200);
+    return () => clearInterval(id);
+  }, []);
+
   const displayedClock = useMemo(() => {
     if (!lastSyncAt || isGameOver) return clock;
     const now = Date.now();
@@ -217,23 +227,10 @@ const MultiplayerGame = () => {
     } else {
       return { wMs: clock.wMs, bMs: Math.max(0, clock.bMs - elapsed) };
     }
-  }, [clock, lastSyncAt, currentPlayer, isGameOver]);
+  }, [clock, lastSyncAt, currentPlayer, isGameOver, tick]);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      // trigger re-render by updating lastSyncAt clone
-      if (!isGameOver && lastSyncAt) {
-        // noop, rely on useMemo; force update by setting state with same value
-        setLastSyncAt((v) => v);
-      }
-    }, 250);
-    return () => clearInterval(id);
-  }, [lastSyncAt, isGameOver]);
-
-  useEffect(() => {
-    return () => {
-      if (ws) ws.close();
-    };
+    return () => { if (ws) ws.close(); };
   }, [ws]);
 
   if (gameState === 'menu') {
@@ -373,13 +370,14 @@ const MultiplayerGame = () => {
   }
 
   if (gameState === 'playing' && gameData) {
+    const rows = pairMoves(movesSan);
     return (
       <div className="section" style={{ display: 'grid', gridTemplateColumns: 'minmax(600px, 1fr) 320px', gap: 16 }}>
         <div>
           <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
           <h2>Многопользовательская игра</h2>
           
-          <div className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel" style={{ marginBottom: 12 }}>
             <p className="kicker"><strong>Вы играете:</strong> {gameData.color === 'w' ? 'белыми' : 'чёрными'}</p>
             <p className="kicker"><strong>Ход:</strong> {gameData.currentPlayer === 'w' ? 'белых' : 'чёрных'}</p>
           </div>
@@ -392,21 +390,9 @@ const MultiplayerGame = () => {
               boardOrientation={gameData.color === 'w' ? 'white' : 'black'}
             />
           </div>
-          
-          {gameData.isGameOver && (
-            <div className="panel" style={{ marginTop: 16, color: '#ff8a80', fontWeight: 'bold' }}>
-              {gameData.result}
-            </div>
-          )}
-          
-          {error && (
-            <div className="panel" style={{ marginTop: 16, color: '#ff8a80' }}>
-              {error}
-            </div>
-          )}
-        </div>
-        <div>
-          <div className="panel">
+
+          {/* Часы под доской */}
+          <div className="panel" style={{ marginTop: 12 }}>
             <h3 style={{ marginTop: 0 }}>Часы</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -419,16 +405,45 @@ const MultiplayerGame = () => {
               </div>
             </div>
           </div>
-          <div className="panel" style={{ marginTop: 12, maxHeight: 360, overflow: 'auto' }}>
+
+          {gameData.isGameOver && (
+            <div className="panel" style={{ marginTop: 12, color: '#ff8a80', fontWeight: 'bold' }}>
+              {gameData.result}
+            </div>
+          )}
+          
+          {error && (
+            <div className="panel" style={{ marginTop: 12, color: '#ff8a80' }}>
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* История ходов справа */}
+        <div>
+          <div className="panel" style={{ maxHeight: 520, overflow: 'auto' }}>
             <h3 style={{ marginTop: 0 }}>История ходов</h3>
-            {movesSan.length === 0 ? (
+            {rows.length === 0 ? (
               <p className="kicker">Пока нет ходов</p>
             ) : (
-              <ol style={{ paddingLeft: 18 }}>
-                {movesSan.map((san, idx) => (
-                  <li key={idx} style={{ marginBottom: 4 }}>{san}</li>
-                ))}
-              </ol>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', width: 40 }}>#</th>
+                    <th style={{ textAlign: 'left' }}>Белые</th>
+                    <th style={{ textAlign: 'left' }}>Чёрные</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.no}>
+                      <td>{r.no}.</td>
+                      <td>{r.w}</td>
+                      <td>{r.b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
