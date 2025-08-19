@@ -373,6 +373,13 @@ const MultiplayerGame = () => {
     const rows = pairMoves(movesSan);
     return (
       <div className="section" style={{ display: 'grid', gridTemplateColumns: 'minmax(600px, 1fr) 320px', gap: 16 }}>
+        <div className="section"
+     style={{ 
+       display: 'grid', 
+       gridTemplateColumns: 'minmax(600px, 1fr) 320px', 
+       gap: 16,
+       alignItems: 'center' 
+     }}></div>
         <div>
           <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
           <h2>Многопользовательская игра</h2>
