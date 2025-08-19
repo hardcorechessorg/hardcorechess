@@ -284,8 +284,8 @@ const ComputerGame = () => {
         )}
       </div>
 
-      <div>
-        <div className="panel">
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div className="panel" style={{ width: 280 }}>
           <h3 style={{ marginTop: 0 }}>Часы</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -299,7 +299,7 @@ const ComputerGame = () => {
           </div>
         </div>
 
-        <div className="panel" style={{ marginTop: 12, maxHeight: 520, overflow: 'auto' }}>
+        <div className="panel" style={{ marginTop: 12, width: 280, maxHeight: 520, overflow: 'auto' }}>
           <h3 style={{ marginTop: 0 }}>История ходов</h3>
           {rows.length === 0 ? (
             <p className="kicker">Пока нет ходов</p>
