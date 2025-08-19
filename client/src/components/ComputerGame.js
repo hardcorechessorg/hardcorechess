@@ -196,7 +196,13 @@ const ComputerGame = () => {
   const rows = useMemo(() => pairMoves(movesSan), [movesSan]);
 
   return (
-    <div className="section" style={{ display: 'grid', gridTemplateColumns: 'minmax(600px, 1fr) 320px', gap: 16 }}>
+    <div className="section" 
+     style={{ 
+       display: 'grid', 
+       gridTemplateColumns: 'minmax(600px, 1fr) 320px', 
+       gap: 16,
+       alignItems: 'center'
+     }}>
       <div>
         <button 
           onClick={() => navigate('/')}
