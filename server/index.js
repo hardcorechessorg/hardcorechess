@@ -54,6 +54,13 @@ const stockfishLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const donationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Валидация входных данных
 const gameIdSchema = z.string().regex(/^[A-Z0-9]{6}$/);
 const playerNameSchema = z
@@ -80,6 +87,9 @@ const createBodySchema = z.object({
 const stockfishBodySchema = z.object({
   fen: z.string().min(3).max(120),
   difficulty: z.number().int().min(1).max(10)
+});
+const donationBodySchema = z.object({
+  amount: z.number().finite().min(1).max(100000)
 });
 
 // __dirname для ESM
@@ -333,6 +343,60 @@ app.post("/stockfish-move", stockfishLimiter, async (req, res) => {
   }
 });
 
+// Создание платежа YooKassa
+app.post('/donate/create-payment', donationLimiter, async (req, res) => {
+  try {
+    const parsed = donationBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Неверная сумма' });
+    }
+    const amount = parsed.data.amount;
+
+    const shopId = process.env.YOOKASSA_SHOP_ID || process.env.YK_SHOP_ID;
+    const secretKey = process.env.YOOKASSA_SECRET_KEY || process.env.YK_SECRET_KEY;
+    if (!shopId || !secretKey) {
+      return res.status(500).json({ error: 'Платёж временно недоступен. Не настроены ключи YooKassa.' });
+    }
+
+    const idempotenceKey = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+    const authHeader = 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64');
+
+    const body = {
+      amount: { value: amount.toFixed(2), currency: 'RUB' },
+      capture: true,
+      confirmation: {
+        type: 'redirect',
+        return_url: 'https://www.hardcorechess.org/#/support?status=success'
+      },
+      description: 'HardcoreChess — пожертвование'
+    };
+
+    const ykResp = await fetch('https://api.yookassa.ru/v3/payments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotence-Key': idempotenceKey,
+        'Authorization': authHeader
+      },
+      body: JSON.stringify(body)
+    });
+
+    const ykJson = await ykResp.json();
+    if (!ykResp.ok) {
+      return res.status(ykResp.status).json({ error: ykJson?.description || 'Ошибка создания платежа' });
+    }
+
+    const confirmationUrl = ykJson?.confirmation?.confirmation_url;
+    if (!confirmationUrl) {
+      return res.status(500).json({ error: 'Не удалось получить ссылку на оплату' });
+    }
+
+    res.json({ confirmationUrl });
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка сервера при создании платежа' });
+  }
+});
+
 // WebSocket соединения для многопользовательской игры
 wss.on('connection', (ws, req) => {
   const origin = req.headers.origin;
@@ -376,7 +440,7 @@ async function getStockfishMove(fen, difficulty) {
   // 1-3 → 1, 4-6 → 2, 7-8 → 3, 9-10 → 4
   const depth = difficulty >= 9 ? 4 : difficulty >= 7 ? 3 : difficulty >= 4 ? 2 : 1;
 
-  // Небольшой стохастический фактор для низких уровней
+  // Небольшая стохастический фактор для низких уровней
   const addNoise = difficulty <= 3;
 
   // Оценочная функция (материал + простая мобильность)
