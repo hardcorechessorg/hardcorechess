@@ -196,139 +196,135 @@ const ComputerGame = () => {
   const rows = useMemo(() => pairMoves(movesSan), [movesSan]);
 
   return (
-    <div className="section" 
-     style={{ 
-       display: 'grid', 
-       gridTemplateColumns: 'minmax(600px, 1fr) 320px', 
-       gap: 16,
-       alignItems: 'center'
-     }}>
-      <div>
-        <button 
-          onClick={() => navigate('/')}
-          className="button"
-          style={{ marginBottom: 12 }}
-        >
-          Назад
-        </button>
-        
-        <h2>Игра против компьютера</h2>
-        
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
-          <div className="panel">
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>
-              Сложность: {difficulty}/10
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="10"
-              value={difficulty}
-              onChange={(e) => changeDifficulty(parseInt(e.target.value))}
-              style={{ width: 180 }}
-            />
+    <div className="section">
+      <button 
+        onClick={() => navigate('/')}
+        className="button"
+        style={{ marginBottom: 12 }}
+      >
+        Назад
+      </button>
+      
+      <h2>Игра против компьютера</h2>
+
+      <div className="game-layout">
+        <div className="game-board">
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div className="panel">
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>
+                Сложность: {difficulty}/10
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={difficulty}
+                onChange={(e) => changeDifficulty(parseInt(e.target.value))}
+                style={{ width: 180 }}
+              />
+            </div>
+            
+            <div className="panel">
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>
+                Цвет фигур:
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => changePlayerColor('w')}
+                  className={`button ${playerColor === 'w' ? 'primary' : ''}`}
+                >
+                  Белые
+                </button>
+                <button
+                  onClick={() => changePlayerColor('b')}
+                  className={`button ${playerColor === 'b' ? 'primary' : ''}`}
+                >
+                  Чёрные
+                </button>
+              </div>
+            </div>
+
+            <div className="panel">
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>Контроль времени</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input type="number" min={1} max={180} value={minutes}
+                  onChange={(e) => { setMinutes(Number(e.target.value)); resetClocks(Number(e.target.value), increment); }}
+                  style={{ width: 80, padding: '8px', borderRadius: 6, border: '1px solid #3a3a3a', background: '#2a2a2a', color: '#e6e6e6' }} />
+                <span className="kicker">+</span>
+                <input type="number" min={0} max={60} value={increment}
+                  onChange={(e) => { setIncrement(Number(e.target.value)); }}
+                  style={{ width: 100, padding: '8px', borderRadius: 6, border: '1px solid #3a3a3a', background: '#2a2a2a', color: '#e6e6e6' }} />
+                <span className="kicker">сек</span>
+              </div>
+            </div>
           </div>
           
-          <div className="panel">
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>
-              Цвет фигур:
-            </label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => changePlayerColor('w')}
-                className={`button ${playerColor === 'w' ? 'primary' : ''}`}
-              >
-                Белые
-              </button>
-              <button
-                onClick={() => changePlayerColor('b')}
-                className={`button ${playerColor === 'b' ? 'primary' : ''}`}
-              >
-                Чёрные
-              </button>
-            </div>
+          <button onClick={startNewGame} className="button" style={{ marginBottom: 12 }}>
+            Новая игра
+          </button>
+          
+          <div className="board-responsive">
+            <Chessboard
+              position={game.fen()}
+              onPieceDrop={handleMove}
+              boardWidth={650}
+              boardOrientation={playerColor === 'w' ? 'white' : 'black'}
+            />
           </div>
 
-          <div className="panel">
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 'bold' }}>Контроль времени</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input type="number" min={1} max={180} value={minutes}
-                onChange={(e) => { setMinutes(Number(e.target.value)); resetClocks(Number(e.target.value), increment); }}
-                style={{ width: 80, padding: '8px', borderRadius: 6, border: '1px solid #3a3a3a', background: '#2a2a2a', color: '#e6e6e6' }} />
-              <span className="kicker">+</span>
-              <input type="number" min={0} max={60} value={increment}
-                onChange={(e) => { setIncrement(Number(e.target.value)); }}
-                style={{ width: 100, padding: '8px', borderRadius: 6, border: '1px solid #3a3a3a', background: '#2a2a2a', color: '#e6e6e6' }} />
-              <span className="kicker">сек</span>
+          {isGameOver && (
+            <div className="panel" style={{ marginTop: 12, color: '#ff8a80', fontWeight: 'bold' }}>
+              {result}
             </div>
-          </div>
-        </div>
-        
-        <button onClick={startNewGame} className="button" style={{ marginBottom: 12 }}>
-          Новая игра
-        </button>
-        
-        <div className="board-wrap">
-          <Chessboard
-            position={game.fen()}
-            onPieceDrop={handleMove}
-            boardWidth={600}
-            boardOrientation={playerColor === 'w' ? 'white' : 'black'}
-          />
-        </div>
-
-        {isGameOver && (
-          <div className="panel" style={{ marginTop: 12, color: '#ff8a80', fontWeight: 'bold' }}>
-            {result}
-          </div>
-        )}
-        
-        {isThinking && (
-          <div className="panel" style={{ marginTop: 12, color: '#8ab4f8' }}>
-            Компьютер анализирует позицию…
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div className="panel" style={{ width: 280 }}>
-          <h3 style={{ marginTop: 0 }}>Часы</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Белые</span>
-              <strong>{formatMs(displayedClock.wMs)}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Чёрные</span>
-              <strong>{formatMs(displayedClock.bMs)}</strong>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel" style={{ marginTop: 12, width: 280, maxHeight: 520, overflow: 'auto' }}>
-          <h3 style={{ marginTop: 0 }}>История ходов</h3>
-          {rows.length === 0 ? (
-            <p className="kicker">Пока нет ходов</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', width: 40 }}>#</th>
-                  <th style={{ textAlign: 'left' }}>Белые</th>
-                  <th style={{ textAlign: 'left' }}>Чёрные</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.no}>
-                    <td>{r.no}.</td>
-                    <td>{r.w}</td>
-                    <td>{r.b}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           )}
+          
+          {isThinking && (
+            <div className="panel" style={{ marginTop: 12, color: '#8ab4f8' }}>
+              Компьютер анализирует позицию…
+            </div>
+          )}
+        </div>
+
+        <div className="game-sidebar">
+          <div className="panel game-clock">
+            <h3 style={{ marginTop: 0 }}>Часы</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Белые</span>
+                <strong>{formatMs(displayedClock.wMs)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Чёрные</span>
+                <strong>{formatMs(displayedClock.bMs)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel game-history">
+            <h3 style={{ marginTop: 0 }}>История ходов</h3>
+            {rows.length === 0 ? (
+              <p className="kicker">Пока нет ходов</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', width: 40 }}>#</th>
+                    <th style={{ textAlign: 'left' }}>Белые</th>
+                    <th style={{ textAlign: 'left' }}>Чёрные</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.no}>
+                      <td>{r.no}.</td>
+                      <td>{r.w}</td>
+                      <td>{r.b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
     </div>

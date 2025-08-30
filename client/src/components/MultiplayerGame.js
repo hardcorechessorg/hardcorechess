@@ -372,85 +372,80 @@ const MultiplayerGame = () => {
   if (gameState === 'playing' && gameData) {
     const rows = pairMoves(movesSan);
     return (
-      <div className="section"        
-     style={{ 
-       display: 'grid', 
-       gridTemplateColumns: 'minmax(600px, 1fr) 320px', 
-       gap: 16,
-       alignItems: 'center' 
-     }}>
+      <div className="section">
+        <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
+        <h2>Многопользовательская игра</h2>
         
-        <div>
-          <button onClick={() => navigate('/')} className="button" style={{ marginBottom: 12 }}>Назад</button>
-          <h2>Многопользовательская игра</h2>
-          
-          <div className="panel" style={{ marginBottom: 12 }}>
-            <p className="kicker"><strong>Вы играете:</strong> {gameData.color === 'w' ? 'белыми' : 'чёрными'}</p>
-            <p className="kicker"><strong>Ход:</strong> {gameData.currentPlayer === 'w' ? 'белых' : 'чёрных'}</p>
-          </div>
-          
-          <div className="board-wrap">
-            <Chessboard
-              position={gameData.fen}
-              onPieceDrop={handleMove}
-              boardWidth={600}
-              boardOrientation={gameData.color === 'w' ? 'white' : 'black'}
-            />
-          </div>
-
-          {gameData.isGameOver && (
-            <div className="panel" style={{ marginTop: 12, color: '#ff8a80', fontWeight: 'bold' }}>
-              {gameData.result}
+        <div className="game-layout">
+          <div className="game-board">
+            <div className="panel" style={{ marginBottom: 12 }}>
+              <p className="kicker"><strong>Вы играете:</strong> {gameData.color === 'w' ? 'белыми' : 'чёрными'}</p>
+              <p className="kicker"><strong>Ход:</strong> {gameData.currentPlayer === 'w' ? 'белых' : 'чёрных'}</p>
             </div>
-          )}
-          
-          {error && (
-            <div className="panel" style={{ marginTop: 12, color: '#ff8a80' }}>
-              {error}
+            
+            <div className="board-responsive">
+              <Chessboard
+                position={gameData.fen}
+                onPieceDrop={handleMove}
+                boardWidth={650}
+                boardOrientation={gameData.color === 'w' ? 'white' : 'black'}
+              />
             </div>
-          )}
-        </div>
 
-        {/* Правая колонка: часы и история ходов */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div className="panel" style={{ width: 280 }}>
-            <h3 style={{ marginTop: 0 }}>Часы</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Белые</span>
-                <strong>{formatMs(displayedClock.wMs)}</strong>
+            {gameData.isGameOver && (
+              <div className="panel" style={{ marginTop: 12, color: '#ff8a80', fontWeight: 'bold' }}>
+                {gameData.result}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Чёрные</span>
-                <strong>{formatMs(displayedClock.bMs)}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="panel" style={{ marginTop: 12, width: 280, maxHeight: 520, overflow: 'auto' }}>
-            <h3 style={{ marginTop: 0 }}>История ходов</h3>
-            {rows.length === 0 ? (
-              <p className="kicker">Пока нет ходов</p>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left', width: 40 }}>#</th>
-                    <th style={{ textAlign: 'left' }}>Белые</th>
-                    <th style={{ textAlign: 'left' }}>Чёрные</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.no}>
-                      <td>{r.no}.</td>
-                      <td>{r.w}</td>
-                      <td>{r.b}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             )}
+            
+            {error && (
+              <div className="panel" style={{ marginTop: 12, color: '#ff8a80' }}>
+                {error}
+              </div>
+            )}
+          </div>
+
+          {/* Правая колонка: часы и история ходов */}
+          <div className="game-sidebar">
+            <div className="panel game-clock">
+              <h3 style={{ marginTop: 0 }}>Часы</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Белые</span>
+                  <strong>{formatMs(displayedClock.wMs)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Чёрные</span>
+                  <strong>{formatMs(displayedClock.bMs)}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel game-history">
+              <h3 style={{ marginTop: 0 }}>История ходов</h3>
+              {rows.length === 0 ? (
+                <p className="kicker">Пока нет ходов</p>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', width: 40 }}>#</th>
+                      <th style={{ textAlign: 'left' }}>Белые</th>
+                      <th style={{ textAlign: 'left' }}>Чёрные</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.no}>
+                        <td>{r.no}.</td>
+                        <td>{r.w}</td>
+                        <td>{r.b}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       </div>

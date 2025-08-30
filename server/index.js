@@ -156,7 +156,9 @@ app.post("/join-game", createJoinLimiter, (req, res) => {
   const playerColor = game.players.length === 0 ? 'w' : 'b';
   const token = generateToken();
   const safeName = playerName.trim();
-  game.players.push({ name: safeName, color: playerColor, ws: null, token });
+  const ua = String(req.headers['user-agent'] || '');
+  const ip = req.ip;
+  game.players.push({ name: safeName, color: playerColor, ws: null, token, ua, ip, fairplay: { suspicionScore: 0, engineMatches: 0, fastMoves: 0, moves: 0 } });
   
   if (game.players.length === 2) {
     game.status = 'playing';
@@ -202,8 +204,28 @@ app.get("/game/:gameId", (req, res) => {
   });
 });
 
+async function updateFairPlay(game, fenBefore, from, to, playerColor, thinkMs) {
+  try {
+    const best = await getStockfishMove(fenBefore, 3);
+    const player = game.players.find(p => p.color === playerColor);
+    if (!player) return;
+    const fair = player.fairplay || { suspicionScore: 0, engineMatches: 0, fastMoves: 0, moves: 0 };
+    fair.moves += 1;
+    // быстрый ход
+    if (thinkMs <= 1000) fair.fastMoves += 1, fair.suspicionScore += 1;
+    // совпадение с ИИ
+    if (best && typeof best === 'string') {
+      const bestStr = best.toString();
+      if (bestStr === to || bestStr.includes(to)) fair.engineMatches += 1, fair.suspicionScore += 2;
+    } else if (best && best.to) {
+      if (best.to === to && best.from === from) fair.engineMatches += 1, fair.suspicionScore += 2;
+    }
+    player.fairplay = fair;
+  } catch {}
+}
+
 // Сделать ход в многопользовательской игре
-app.post("/multiplayer-move", moveLimiter, (req, res) => {
+app.post("/multiplayer-move", moveLimiter, async (req, res) => {
   const parsed = moveBodySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Неверные данные запроса" });
@@ -224,11 +246,13 @@ app.post("/multiplayer-move", moveLimiter, (req, res) => {
   if (game.currentPlayer !== playerColor) {
     return res.status(400).json({ error: "Не ваш ход" });
   }
-  
+
+  const fenBefore = game.chess.fen();
   // Обновляем часы текущего игрока
   const now = Date.now();
+  let elapsed = 0;
   if (game.lastMoveAt) {
-    const elapsed = now - game.lastMoveAt;
+    elapsed = now - game.lastMoveAt;
     if (game.currentPlayer === 'w') {
       game.clock.wMs = Math.max(0, game.clock.wMs - elapsed);
     } else {
@@ -254,6 +278,9 @@ app.post("/multiplayer-move", moveLimiter, (req, res) => {
   if (!move) {
     return res.json({ error: "Неверный ход" });
   }
+
+  // Анти-чит анализ (асинхронно, но без ожидания результата для клиента)
+  updateFairPlay(game, fenBefore, from, to, playerColor, elapsed);
   
   // Инкремент игроку, сделавшему ход
   if (game.currentPlayer === 'w') {
@@ -274,6 +301,8 @@ app.post("/multiplayer-move", moveLimiter, (req, res) => {
     if (game.chess.isCheckmate()) result = "Мат";
     else if (game.chess.isDraw()) result = "Ничья";
   }
+
+  const fairplay = authorizedPlayer.fairplay || null;
   
   // Уведомляем всех игроков через WebSocket
   const room = gameRooms.get(gameId);
@@ -288,7 +317,11 @@ app.post("/multiplayer-move", moveLimiter, (req, res) => {
           currentPlayer: game.currentPlayer,
           isGameOver,
           result,
-          clock: game.clock
+          clock: game.clock,
+          fairplay: {
+            color: playerColor,
+            ...fairplay
+          }
         }));
       }
     });
@@ -299,7 +332,11 @@ app.post("/multiplayer-move", moveLimiter, (req, res) => {
     currentPlayer: game.currentPlayer,
     isGameOver,
     result,
-    clock: game.clock
+    clock: game.clock,
+    fairplay: {
+      color: playerColor,
+      ...fairplay
+    }
   });
 });
 
