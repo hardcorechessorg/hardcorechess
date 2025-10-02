@@ -47,12 +47,7 @@ const moveLimiter = rateLimit({
   legacyHeaders: false
 });
 
-const stockfishLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+// stockfishLimiter удален - больше не используется
 
 const donationLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -84,10 +79,7 @@ const createBodySchema = z.object({
   minutes: z.number().int().min(1).max(180).optional(),
   increment: z.number().int().min(0).max(60).optional()
 });
-const stockfishBodySchema = z.object({
-  fen: z.string().min(3).max(120),
-  difficulty: z.number().int().min(1).max(10)
-});
+// stockfishBodySchema удален - больше не используется
 const donationBodySchema = z.object({
   amount: z.number().finite().min(1).max(100000)
 });
@@ -206,20 +198,13 @@ app.get("/game/:gameId", (req, res) => {
 
 async function updateFairPlay(game, fenBefore, from, to, playerColor, thinkMs) {
   try {
-    const best = await getStockfishMove(fenBefore, 3);
+    // Упрощенная система анти-чита без Stockfish анализа
     const player = game.players.find(p => p.color === playerColor);
     if (!player) return;
     const fair = player.fairplay || { suspicionScore: 0, engineMatches: 0, fastMoves: 0, moves: 0 };
     fair.moves += 1;
     // быстрый ход
     if (thinkMs <= 1000) fair.fastMoves += 1, fair.suspicionScore += 1;
-    // совпадение с ИИ
-    if (best && typeof best === 'string') {
-      const bestStr = best.toString();
-      if (bestStr === to || bestStr.includes(to)) fair.engineMatches += 1, fair.suspicionScore += 2;
-    } else if (best && best.to) {
-      if (best.to === to && best.from === from) fair.engineMatches += 1, fair.suspicionScore += 2;
-    }
     player.fairplay = fair;
   } catch {}
 }
@@ -340,45 +325,7 @@ app.post("/multiplayer-move", moveLimiter, async (req, res) => {
   });
 });
 
-// Игра против Stockfish
-app.post("/stockfish-move", stockfishLimiter, async (req, res) => {
-  const parsed = stockfishBodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Неверные данные запроса" });
-  }
-  const { fen, difficulty } = parsed.data;
-  const game = new Chess(fen);
-  
-  if (game.isGameOver()) {
-    return res.json({ error: "Игра окончена" });
-  }
-  
-  try {
-    const stockfishMove = await getStockfishMove(fen, difficulty);
-    const move = game.move(stockfishMove);
-    
-    if (!move) {
-      return res.json({ error: "Ошибка хода Stockfish" });
-    }
-    
-    let isGameOver = game.isGameOver();
-    let result = null;
-    
-    if (isGameOver) {
-      if (game.isCheckmate()) result = "Мат";
-      else if (game.isDraw()) result = "Ничья";
-    }
-    
-    res.json({
-      fen: game.fen(),
-      move: stockfishMove,
-      isGameOver,
-      result
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Ошибка Stockfish" });
-  }
-});
+// Эндпоинт удален - теперь используется локальный Stockfish WASM
 
 // Создание платежа YooKassa
 app.post('/donate/create-payment', donationLimiter, async (req, res) => {
@@ -465,121 +412,7 @@ wss.on('connection', (ws, req) => {
   }
 });
 
-// Функция для получения хода от ИИ (альфа-бета, глубина зависит от difficulty)
-async function getStockfishMove(fen, difficulty) {
-  const game = new Chess(fen);
-  const legalMoves = game.moves();
-  if (legalMoves.length === 0) {
-    throw new Error("Нет доступных ходов");
-  }
-
-  // Маппинг сложности (1-10) в глубину поиска
-  // 1-3 → 1, 4-6 → 2, 7-8 → 3, 9-10 → 4
-  const depth = difficulty >= 9 ? 4 : difficulty >= 7 ? 3 : difficulty >= 4 ? 2 : 1;
-
-  // Небольшая стохастический фактор для низких уровней
-  const addNoise = difficulty <= 3;
-
-  // Оценочная функция (материал + простая мобильность)
-  function evaluatePosition(evalGame) {
-    if (evalGame.isCheckmate()) {
-      return evalGame.turn() === 'w' ? -Infinity : Infinity;
-    }
-    if (evalGame.isDraw()) return 0;
-
-    const board = evalGame.board();
-    let score = 0;
-    const pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
-
-    for (let rank of board) {
-      for (let piece of rank) {
-        if (!piece) continue;
-        const val = pieceValues[piece.type] || 0;
-        score += piece.color === 'w' ? val : -val;
-      }
-    }
-
-    const whiteMoves = countMovesFor(evalGame, 'w');
-    const blackMoves = countMovesFor(evalGame, 'b');
-    score += (whiteMoves - blackMoves) * 2;
-
-    return score;
-  }
-
-  function countMovesFor(baseGame, color) {
-    const g = new Chess(baseGame.fen());
-    if (g.turn() !== color) return 0;
-    try {
-      return g.moves().length;
-    } catch {
-      return 0;
-    }
-  }
-
-  function orderMoves(g, moves) {
-    return moves.sort((a, b) => {
-      const am = g.move(a); g.undo();
-      const bm = g.move(b); g.undo();
-      const acap = am && am.captured ? 1 : 0;
-      const bcap = bm && bm.captured ? 1 : 0;
-      return bcap - acap;
-    });
-  }
-
-  function alphaBeta(g, currentDepth, alpha, beta, maximizingPlayer) {
-    if (currentDepth === 0 || g.isGameOver()) {
-      return evaluatePosition(g);
-    }
-    let best;
-    const moves = orderMoves(g, g.moves());
-    if (maximizingPlayer) {
-      best = -Infinity;
-      for (const m of moves) {
-        g.move(m);
-        const val = alphaBeta(g, currentDepth - 1, alpha, beta, false);
-        g.undo();
-        if (val > best) best = val;
-        if (best > alpha) alpha = best;
-        if (beta <= alpha) break;
-      }
-      return best;
-    } else {
-      best = Infinity;
-      for (const m of moves) {
-        g.move(m);
-        const val = alphaBeta(g, currentDepth - 1, alpha, beta, true);
-        g.undo();
-        if (val < best) best = val;
-        if (best < beta) beta = best;
-        if (beta <= alpha) break;
-      }
-      return best;
-    }
-  }
-
-  const maximizing = game.turn() === 'w';
-  let bestScore = maximizing ? -Infinity : Infinity;
-  let bestMoves = [];
-  const moves = orderMoves(game, legalMoves.slice());
-  for (const m of moves) {
-    game.move(m);
-    const score = alphaBeta(game, depth - 1, -Infinity, Infinity, !maximizing);
-    game.undo();
-    if (maximizing) {
-      if (score > bestScore) { bestScore = score; bestMoves = [m]; }
-      else if (score === bestScore) { bestMoves.push(m); }
-    } else {
-      if (score < bestScore) { bestScore = score; bestMoves = [m]; }
-      else if (score === bestScore) { bestMoves.push(m); }
-    }
-  }
-
-  const chosen = addNoise && bestMoves.length > 1
-    ? bestMoves[Math.floor(Math.random() * bestMoves.length)]
-    : bestMoves[0] || legalMoves[0];
-
-  return chosen;
-}
+// Функция getStockfishMove удалена - теперь используется локальный Stockfish WASM
 
 // Генерация уникального ID игры
 function generateGameId() {
