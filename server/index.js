@@ -325,7 +325,7 @@ app.post("/multiplayer-move", moveLimiter, async (req, res) => {
   });
 });
 
-// Эндпоинт удален - теперь используется локальный Stockfish WASM
+// Stockfish удален - теперь используется клиентский Stockfish WASM
 
 // Создание платежа YooKassa
 app.post('/donate/create-payment', donationLimiter, async (req, res) => {

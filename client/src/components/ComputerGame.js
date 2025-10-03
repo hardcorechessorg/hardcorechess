@@ -40,92 +40,73 @@ const ComputerGame = () => {
   // История ходов (SAN)
   const [movesSan, setMovesSan] = useState([]);
 
-  // Инициализация Stockfish (упрощенная версия как в Lichess)
+  // Инициализация Stockfish (максимально простой подход как на Lichess)
   useEffect(() => {
-    const initStockfish = async () => {
-      try {
-        setIsLoadingStockfish(true);
-        
-        // Определяем путь к Stockfish для продакшна
-        const getStockfishPath = () => {
-          // В продакшне файлы находятся на hardcorechess.org
-          if (window.location.hostname === 'www.hardcorechess.org') {
-            return 'https://www.hardcorechess.org/stockfish-nnue-16-single.js';
-          }
-          // Локально используем относительный путь
-          return '/stockfish-nnue-16-single.js';
-        };
+    const initStockfish = () => {
+      setIsLoadingStockfish(true);
+      
+      // Проверяем, не загружен ли уже Stockfish
+      if (window.Stockfish) {
+        console.log('Stockfish уже загружен');
+        startStockfish();
+        return;
+      }
 
-        // Простая реализация с fallback на CDN
-        const loadStockfish = () => {
-          return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            let attempts = 0;
-            const maxAttempts = 2;
-            
-            const tryLoad = () => {
-              if (attempts === 0) {
-                // Первая попытка - локальный файл или файл с продакшн сервера
-                script.src = getStockfishPath();
-                console.log('Попытка загрузки Stockfish с:', script.src);
-              } else if (attempts === 1) {
-                // Вторая попытка - CDN
-                script.src = 'https://unpkg.com/stockfish@16.0.0/src/stockfish-nnue-16-single.js';
-                console.log('Попытка загрузки Stockfish с CDN:', script.src);
-              } else {
-                console.log('Все попытки загрузки исчерпаны');
-                reject(new Error('Stockfish не загружен'));
-                return;
-              }
-              
-              attempts++;
-              document.head.appendChild(script);
-            };
-            
-            script.onload = () => {
-              console.log('Stockfish скрипт загружен успешно');
-              resolve();
-            };
-            
-            script.onerror = () => {
-              console.log(`Ошибка загрузки Stockfish (попытка ${attempts})`);
-              script.remove(); // Удаляем неудачный скрипт
-              tryLoad(); // Пробуем следующий источник
-            };
-            
-            tryLoad();
-          });
+      // Создаем скрипт для загрузки
+      const script = document.createElement('script');
+      script.src = '/stockfish-nnue-16-single.js';
+      
+      script.onload = () => {
+        console.log('Stockfish скрипт загружен');
+        // Ждем немного и запускаем
+        setTimeout(startStockfish, 500);
+      };
+      
+      script.onerror = () => {
+        console.log('Не удалось загрузить Stockfish');
+        setIsLoadingStockfish(false);
+      };
+      
+      document.head.appendChild(script);
+    };
+
+    const startStockfish = () => {
+      try {
+        if (!window.Stockfish) {
+          console.log('Stockfish не найден в window');
+          setIsLoadingStockfish(false);
+          return;
+        }
+
+        const stockfish = new window.Stockfish();
+        stockfishRef.current = stockfish;
+        
+        let uciReceived = false;
+        
+        stockfish.onmessage = (event) => {
+          const message = event.data || event;
+          console.log('Stockfish:', message);
+          
+          if (message.includes('uciok')) {
+            uciReceived = true;
+            console.log('Stockfish готов!');
+            setIsStockfishReady(true);
+            setIsLoadingStockfish(false);
+          }
         };
         
-        try {
-          await loadStockfish();
-          
-          // Ждем инициализации
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          if (window.Stockfish) {
-            const stockfish = new window.Stockfish();
-            stockfishRef.current = stockfish;
-            
-            stockfish.onmessage = (event) => {
-              const message = event.data || event;
-              if (message.includes('uciok')) {
-                console.log('Stockfish готов к работе');
-                setIsStockfishReady(true);
-                setIsLoadingStockfish(false);
-              }
-            };
-            
-            stockfish.postMessage('uci');
-          } else {
-            throw new Error('Stockfish не найден в window');
+        stockfish.postMessage('uci');
+        
+        // Таймаут на случай если uciok не придет
+        setTimeout(() => {
+          if (!uciReceived) {
+            console.log('Stockfish не ответил на uci');
+            setIsLoadingStockfish(false);
           }
-        } catch (error) {
-          console.log('Stockfish недоступен, используем простой ИИ');
-          setIsLoadingStockfish(false);
-        }
+        }, 5000);
+        
       } catch (error) {
-        console.error('Ошибка инициализации:', error);
+        console.error('Ошибка создания Stockfish:', error);
         setIsLoadingStockfish(false);
       }
     };
@@ -282,41 +263,38 @@ const ComputerGame = () => {
 
       setIsThinking(true);
       
+      const stockfish = stockfishRef.current;
+      
+      // Простая реализация как на Lichess
       return new Promise((resolve) => {
-        const stockfish = stockfishRef.current;
-        let bestMove = null;
-        let resolved = false;
+        let completed = false;
         
-        // Таймаут для Stockfish (максимум 3 секунды)
         const timeout = setTimeout(() => {
-          if (!resolved) {
-            console.log('Stockfish timeout, используем простой алгоритм');
+          if (!completed) {
+            console.log('Stockfish таймаут, используем простой алгоритм');
             makeSimpleComputerMove();
             resolve();
           }
-        }, 3000);
+        }, 2000); // Быстрый таймаут как на Lichess
         
-        const handleMessage = (event) => {
+        stockfish.onmessage = (event) => {
           const message = event.data || event;
           
           if (message.includes('bestmove')) {
-            if (resolved) return;
-            resolved = true;
+            if (completed) return;
+            completed = true;
             clearTimeout(timeout);
             
-            const parts = message.split(' ');
-            if (parts.length >= 2) {
-              bestMove = parts[1];
-            }
+            const move = message.split(' ')[1];
             
-            if (bestMove && bestMove !== 'null') {
+            if (move && move !== 'null') {
               try {
-                const move = game.move(bestMove);
-                if (move) {
-                  setMovesSan(prev => [...prev, move.san]);
+                const gameMove = game.move(move);
+                if (gameMove) {
+                  setMovesSan(prev => [...prev, gameMove.san]);
                   setGame(new Chess(game.fen()));
-                  const compColor = move.color;
-                  if (!settleTimeAfterMove(compColor)) {
+                  
+                  if (!settleTimeAfterMove(gameMove.color)) {
                     setIsThinking(false);
                     resolve();
                     return;
@@ -332,7 +310,7 @@ const ComputerGame = () => {
                   }
                 }
               } catch (error) {
-                console.error('Ошибка выполнения хода:', error);
+                console.error('Ошибка хода:', error);
               }
             }
             
@@ -341,15 +319,9 @@ const ComputerGame = () => {
           }
         };
         
-        stockfish.onmessage = handleMessage;
-        
-        // Настройка сложности (упрощенная версия)
-        const depth = difficulty >= 7 ? 6 : difficulty >= 4 ? 4 : 2;
-        const skillLevel = Math.min(20, difficulty * 2);
-        
-        stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
+        // Простые настройки как на Lichess
         stockfish.postMessage('position fen ' + game.fen());
-        stockfish.postMessage('go depth ' + depth);
+        stockfish.postMessage('go depth ' + (difficulty >= 5 ? 6 : 4));
       });
     } catch (error) {
       console.error('Ошибка в makeComputerMove:', error);
