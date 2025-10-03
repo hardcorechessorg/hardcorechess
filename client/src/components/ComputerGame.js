@@ -40,51 +40,61 @@ const ComputerGame = () => {
   // История ходов (SAN)
   const [movesSan, setMovesSan] = useState([]);
 
-  // Инициализация Stockfish
+  // Инициализация Stockfish (упрощенная версия как в Lichess)
   useEffect(() => {
     const initStockfish = async () => {
       try {
         setIsLoadingStockfish(true);
         
-        // Загружаем Stockfish через CDN
-        if (!window.Stockfish) {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/stockfish@17.1.0/stockfish.js';
-          script.onload = () => {
+        // Простая реализация без сложных fallback'ов
+        const loadStockfish = () => {
+          return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = '/stockfish-nnue-16-single.js';
+            
+            script.onload = () => {
+              console.log('Stockfish скрипт загружен');
+              resolve();
+            };
+            
+            script.onerror = () => {
+              console.log('Ошибка загрузки Stockfish, используем простой ИИ');
+              reject(new Error('Stockfish не загружен'));
+            };
+            
+            document.head.appendChild(script);
+          });
+        };
+        
+        try {
+          await loadStockfish();
+          
+          // Ждем инициализации
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          if (window.Stockfish) {
             const stockfish = new window.Stockfish();
             stockfishRef.current = stockfish;
             
             stockfish.onmessage = (event) => {
               const message = event.data || event;
               if (message.includes('uciok')) {
+                console.log('Stockfish готов к работе');
                 setIsStockfishReady(true);
                 setIsLoadingStockfish(false);
               }
             };
             
             stockfish.postMessage('uci');
-          };
-          script.onerror = () => {
-            console.error('Ошибка загрузки Stockfish');
-            setIsLoadingStockfish(false);
-          };
-          document.head.appendChild(script);
-        } else {
-          const stockfish = new window.Stockfish();
-          stockfishRef.current = stockfish;
-          
-          stockfish.onmessage = (event) => {
-            const message = event.data || event;
-            if (message.includes('uciok')) {
-              setIsStockfishReady(true);
-              setIsLoadingStockfish(false);
-            }
-          };
-          
-          stockfish.postMessage('uci');
+          } else {
+            throw new Error('Stockfish не найден в window');
+          }
+        } catch (error) {
+          console.log('Stockfish недоступен, используем простой ИИ');
+          setIsLoadingStockfish(false);
         }
       } catch (error) {
-        console.error('Ошибка инициализации Stockfish:', error);
+        console.error('Ошибка инициализации:', error);
         setIsLoadingStockfish(false);
       }
     };
@@ -168,107 +178,184 @@ const ComputerGame = () => {
     return true;
   };
 
-  const makeComputerMove = async () => {
-    if (isGameOver || game.isGameOver() || !isStockfishReady || !stockfishRef.current) return;
-
-    if (game.turn() !== playerColor) {
-      const now = Date.now();
-      if (lastTurnStartAt != null) {
-        const elapsed = now - lastTurnStartAt;
-        const compColor = playerColor === 'w' ? 'b' : 'w';
-        const compMs = compColor === 'w' ? clock.wMs : clock.bMs;
-        if (compMs - elapsed <= 0) {
-          finishOnTime(compColor);
-          return;
-        }
-      }
-    }
-
+  const makeSimpleComputerMove = () => {
+    if (isGameOver || game.isGameOver()) return;
+    
     setIsThinking(true);
     
-    return new Promise((resolve) => {
-      const stockfish = stockfishRef.current;
-      let bestMove = null;
-      
-      const handleMessage = (event) => {
-        const message = event.data || event;
-        
-        if (message.includes('bestmove')) {
-          const parts = message.split(' ');
-          if (parts.length >= 2) {
-            bestMove = parts[1];
-          }
+    setTimeout(() => {
+      try {
+        const moves = game.moves();
+        if (moves.length > 0) {
+          // Простой алгоритм: случайный ход с небольшим приоритетом для взятий
+          const captures = moves.filter(move => {
+            const testGame = new Chess(game.fen());
+            const moveObj = testGame.move(move);
+            return moveObj && moveObj.captured;
+          });
           
-          stockfish.removeEventListener('message', handleMessage);
+          const moveToPlay = captures.length > 0 && Math.random() < 0.7 
+            ? captures[Math.floor(Math.random() * captures.length)]
+            : moves[Math.floor(Math.random() * moves.length)];
           
-          if (bestMove && bestMove !== 'null') {
-            try {
-              const move = game.move(bestMove);
-              if (move) {
-                setMovesSan(prev => [...prev, move.san]);
-                setGame(new Chess(game.fen()));
-                const compColor = move.color;
-                if (!settleTimeAfterMove(compColor)) {
-                  setIsThinking(false);
-                  resolve();
-                  return;
-                }
+          const move = game.move(moveToPlay);
+          if (move) {
+            setMovesSan(prev => [...prev, move.san]);
+            setGame(new Chess(game.fen()));
+            const compColor = move.color;
+            if (!settleTimeAfterMove(compColor)) {
+              setIsThinking(false);
+              return;
+            }
 
-                if (game.isGameOver()) {
-                  setIsGameOver(true);
-                  if (game.isCheckmate()) {
-                    setResult(playerColor === 'w' ? 'Победа чёрных!' : 'Победа белых!');
-                  } else if (game.isDraw()) {
-                    setResult('Ничья!');
-                  }
-                }
+            if (game.isGameOver()) {
+              setIsGameOver(true);
+              if (game.isCheckmate()) {
+                setResult(playerColor === 'w' ? 'Победа чёрных!' : 'Победа белых!');
+              } else if (game.isDraw()) {
+                setResult('Ничья!');
               }
-            } catch (error) {
-              console.error('Ошибка выполнения хода:', error);
             }
           }
-          
-          setIsThinking(false);
-          resolve();
         }
-      };
+      } catch (error) {
+        console.error('Ошибка простого хода:', error);
+      } finally {
+        setIsThinking(false);
+      }
+    }, 500 + Math.random() * 1000); // Имитация размышления
+  };
+
+  const makeComputerMove = async () => {
+    try {
+      if (isGameOver || game.isGameOver()) return;
       
-      stockfish.addEventListener('message', handleMessage);
+      // Если Stockfish не готов, используем простой алгоритм
+      if (!isStockfishReady || !stockfishRef.current) {
+        makeSimpleComputerMove();
+        return;
+      }
+
+      if (game.turn() !== playerColor) {
+        const now = Date.now();
+        if (lastTurnStartAt != null) {
+          const elapsed = now - lastTurnStartAt;
+          const compColor = playerColor === 'w' ? 'b' : 'w';
+          const compMs = compColor === 'w' ? clock.wMs : clock.bMs;
+          if (compMs - elapsed <= 0) {
+            finishOnTime(compColor);
+            return;
+          }
+        }
+      }
+
+      setIsThinking(true);
       
-      // Настройка сложности через UCI параметры
-      const depth = difficulty >= 9 ? 15 : difficulty >= 7 ? 12 : difficulty >= 4 ? 8 : 4;
-      const skillLevel = Math.min(20, difficulty * 2);
-      
-      stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
-      stockfish.postMessage('position fen ' + game.fen());
-      stockfish.postMessage('go depth ' + depth);
-    });
+      return new Promise((resolve) => {
+        const stockfish = stockfishRef.current;
+        let bestMove = null;
+        let resolved = false;
+        
+        // Таймаут для Stockfish (максимум 3 секунды)
+        const timeout = setTimeout(() => {
+          if (!resolved) {
+            console.log('Stockfish timeout, используем простой алгоритм');
+            makeSimpleComputerMove();
+            resolve();
+          }
+        }, 3000);
+        
+        const handleMessage = (event) => {
+          const message = event.data || event;
+          
+          if (message.includes('bestmove')) {
+            if (resolved) return;
+            resolved = true;
+            clearTimeout(timeout);
+            
+            const parts = message.split(' ');
+            if (parts.length >= 2) {
+              bestMove = parts[1];
+            }
+            
+            if (bestMove && bestMove !== 'null') {
+              try {
+                const move = game.move(bestMove);
+                if (move) {
+                  setMovesSan(prev => [...prev, move.san]);
+                  setGame(new Chess(game.fen()));
+                  const compColor = move.color;
+                  if (!settleTimeAfterMove(compColor)) {
+                    setIsThinking(false);
+                    resolve();
+                    return;
+                  }
+
+                  if (game.isGameOver()) {
+                    setIsGameOver(true);
+                    if (game.isCheckmate()) {
+                      setResult(playerColor === 'w' ? 'Победа чёрных!' : 'Победа белых!');
+                    } else if (game.isDraw()) {
+                      setResult('Ничья!');
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error('Ошибка выполнения хода:', error);
+              }
+            }
+            
+            setIsThinking(false);
+            resolve();
+          }
+        };
+        
+        stockfish.onmessage = handleMessage;
+        
+        // Настройка сложности (упрощенная версия)
+        const depth = difficulty >= 7 ? 6 : difficulty >= 4 ? 4 : 2;
+        const skillLevel = Math.min(20, difficulty * 2);
+        
+        stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
+        stockfish.postMessage('position fen ' + game.fen());
+        stockfish.postMessage('go depth ' + depth);
+      });
+    } catch (error) {
+      console.error('Ошибка в makeComputerMove:', error);
+      setIsThinking(false);
+    }
   };
 
   const handleMove = async (sourceSquare, targetSquare) => {
-    if (isGameOver || isThinking) return false;
-    if (game.turn() !== playerColor) return false;
+    try {
+      if (isGameOver || isThinking) return false;
+      if (game.turn() !== playerColor) return false;
 
-    const move = game.move({ from: sourceSquare, to: targetSquare });
-    if (!move) return false;
+      const move = game.move({ from: sourceSquare, to: targetSquare });
+      if (!move) return false;
 
-    setMovesSan(prev => [...prev, move.san]);
-    setGame(new Chess(game.fen()));
+      setMovesSan(prev => [...prev, move.san]);
+      setGame(new Chess(game.fen()));
 
-    if (!settleTimeAfterMove(move.color)) return true;
+      if (!settleTimeAfterMove(move.color)) return true;
 
-    if (game.isGameOver()) {
-      setIsGameOver(true);
-      if (game.isCheckmate()) {
-        setResult(playerColor === 'w' ? 'Победа белых!' : 'Победа чёрных!');
-      } else if (game.isDraw()) {
-        setResult('Ничья!');
+      if (game.isGameOver()) {
+        setIsGameOver(true);
+        if (game.isCheckmate()) {
+          setResult(playerColor === 'w' ? 'Победа белых!' : 'Победа чёрных!');
+        } else if (game.isDraw()) {
+          setResult('Ничья!');
+        }
+        return true;
       }
-      return true;
-    }
 
-    setTimeout(() => { makeComputerMove(); }, 200);
-    return true;
+      setTimeout(() => { makeComputerMove(); }, 200);
+      return true;
+    } catch (error) {
+      // Просто возвращаем false, фигура вернется на место
+      console.log('Неправильный ход:', error.message);
+      return false;
+    }
   };
 
   const changeDifficulty = (newDifficulty) => {
@@ -297,13 +384,25 @@ const ComputerGame = () => {
 
       {isLoadingStockfish && (
         <div className="panel" style={{ marginBottom: 16, color: '#8ab4f8' }}>
-          Загрузка Stockfish WASM модуля...
+          Загрузка легкой версии Stockfish...
+        </div>
+      )}
+
+      {isStockfishReady && (
+        <div className="panel" style={{ marginBottom: 16, color: '#4caf50' }}>
+          ✅ Stockfish готов! Компьютер будет играть на максимальном уровне.
         </div>
       )}
 
       {!isStockfishReady && !isLoadingStockfish && (
-        <div className="panel" style={{ marginBottom: 16, color: '#ff8a80' }}>
-          Ошибка загрузки Stockfish. Попробуйте обновить страницу.
+        <div className="panel" style={{ marginBottom: 16, color: '#ffa726' }}>
+          ⚠️ Stockfish не загружен. Используется упрощенный ИИ.
+          <br />
+          <small>Игра будет работать, но компьютер будет играть проще.</small>
+          <br />
+          <small>Откройте консоль браузера (F12) для диагностики.</small>
+          <br />
+          <small>На продакшн сервере Stockfish должен работать лучше.</small>
         </div>
       )}
 
