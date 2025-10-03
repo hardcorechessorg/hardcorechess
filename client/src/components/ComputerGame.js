@@ -46,23 +46,54 @@ const ComputerGame = () => {
       try {
         setIsLoadingStockfish(true);
         
-        // Простая реализация без сложных fallback'ов
+        // Определяем путь к Stockfish для продакшна
+        const getStockfishPath = () => {
+          // В продакшне файлы находятся на hardcorechess.org
+          if (window.location.hostname === 'www.hardcorechess.org') {
+            return 'https://www.hardcorechess.org/stockfish-nnue-16-single.js';
+          }
+          // Локально используем относительный путь
+          return '/stockfish-nnue-16-single.js';
+        };
+
+        // Простая реализация с fallback на CDN
         const loadStockfish = () => {
           return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = '/stockfish-nnue-16-single.js';
+            let attempts = 0;
+            const maxAttempts = 2;
+            
+            const tryLoad = () => {
+              if (attempts === 0) {
+                // Первая попытка - локальный файл или файл с продакшн сервера
+                script.src = getStockfishPath();
+                console.log('Попытка загрузки Stockfish с:', script.src);
+              } else if (attempts === 1) {
+                // Вторая попытка - CDN
+                script.src = 'https://unpkg.com/stockfish@16.0.0/src/stockfish-nnue-16-single.js';
+                console.log('Попытка загрузки Stockfish с CDN:', script.src);
+              } else {
+                console.log('Все попытки загрузки исчерпаны');
+                reject(new Error('Stockfish не загружен'));
+                return;
+              }
+              
+              attempts++;
+              document.head.appendChild(script);
+            };
             
             script.onload = () => {
-              console.log('Stockfish скрипт загружен');
+              console.log('Stockfish скрипт загружен успешно');
               resolve();
             };
             
             script.onerror = () => {
-              console.log('Ошибка загрузки Stockfish, используем простой ИИ');
-              reject(new Error('Stockfish не загружен'));
+              console.log(`Ошибка загрузки Stockfish (попытка ${attempts})`);
+              script.remove(); // Удаляем неудачный скрипт
+              tryLoad(); // Пробуем следующий источник
             };
             
-            document.head.appendChild(script);
+            tryLoad();
           });
         };
         
@@ -385,6 +416,8 @@ const ComputerGame = () => {
       {isLoadingStockfish && (
         <div className="panel" style={{ marginBottom: 16, color: '#8ab4f8' }}>
           Загрузка легкой версии Stockfish...
+          <br />
+          <small>Сервер: hardcorechess.onrender.com | Клиент: hardcorechess.org</small>
         </div>
       )}
 
